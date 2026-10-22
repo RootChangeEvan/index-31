@@ -1,0 +1,1494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trust Valuation Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,650;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+/* ============================================================
+   Community Valuation Labs — Root Change / CPTA
+   Single-file app: facilitator console, player phone flow,
+   projection sorting board, analysis.
+   ============================================================ */
+:root{
+  color-scheme: light;
+  --bg:#f6f4ef; --surface:#ffffff; --surface-2:#f0ede6; --line:#e2ddd2;
+  --ink:#14213d; --ink-2:#4a5468; --ink-3:#646c7c;
+  --amber:#f2b705; --amber-soft:#fff4cc; --amber-ink:#7a5900;
+  --teal:#13a89e; --teal-soft:#d6f3f0; --teal-ink:#0b5f59;
+  --navy:#14213d; --danger:#c43c3c; --danger-soft:#fbe5e5;
+  --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a;
+  --seq-0:#eaf2fb; --seq-4:#1d5fae;
+  --shadow:0 1px 2px rgba(20,33,61,.06),0 4px 16px rgba(20,33,61,.06);
+  --radius:12px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --bg:#11161f; --surface:#19202b; --surface-2:#212a37; --line:#2e3846;
+    --ink:#eef1f6; --ink-2:#b9c1cf; --ink-3:#8590a2;
+    --amber:#f2b705; --amber-soft:#3a3010; --amber-ink:#ffd65a;
+    --teal:#22b8ad; --teal-soft:#123532; --teal-ink:#7de3da;
+    --danger:#e66767; --danger-soft:#3a1c1c;
+    --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70;
+    --seq-0:#1d2a3b; --seq-4:#6aa8f0;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#11161f; --surface:#19202b; --surface-2:#212a37; --line:#2e3846;
+  --ink:#eef1f6; --ink-2:#b9c1cf; --ink-3:#8590a2;
+  --amber-soft:#3a3010; --amber-ink:#ffd65a;
+  --teal:#22b8ad; --teal-soft:#123532; --teal-ink:#7de3da;
+  --danger:#e66767; --danger-soft:#3a1c1c;
+  --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70;
+  --seq-0:#1d2a3b; --seq-4:#6aa8f0;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:650;letter-spacing:-.01em;margin:0 0 .4em}
+h1{font-size:28px} h2{font-size:22px} h3{font-size:17px}
+a{color:var(--series-1)}
+button{font:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+textarea{min-height:80px;resize:vertical}
+label{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin:10px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+.muted{color:var(--ink-3)} .small{font-size:13px} .tiny{font-size:12px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.grow{flex:1}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:8px 16px;font-weight:600;display:inline-flex;gap:6px;align-items:center;text-decoration:none}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--navy);border-color:var(--navy);color:#fff}
+:root[data-theme="dark"] .btn.primary{background:var(--amber);border-color:var(--amber);color:#14213d}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.primary{background:var(--amber);border-color:var(--amber);color:#14213d}}
+.btn.amber{background:var(--amber);border-color:var(--amber);color:#14213d}
+.btn.teal{background:var(--teal);border-color:var(--teal);color:#fff}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.danger{color:var(--danger)}
+.btn.sm{padding:5px 11px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.chip{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:var(--surface-2);color:var(--ink-2)}
+.chip.amber{background:var(--amber-soft);color:var(--amber-ink)}
+.chip.teal{background:var(--teal-soft);color:var(--teal-ink)}
+.chip.demo{background:var(--danger-soft);color:var(--danger)}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-2);font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tablewrap{overflow-x:auto}
+.toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 18px;border-radius:999px;z-index:99;box-shadow:var(--shadow);font-weight:500;max-width:90vw}
+.toast.err{background:var(--danger);color:#fff;border:0;padding:10px 18px;margin:0}
+#tip{position:fixed;pointer-events:none;background:var(--navy);color:#fff;padding:6px 10px;border-radius:8px;font-size:12px;z-index:100;max-width:260px;display:none;line-height:1.4}
+:root[data-theme="dark"] #tip{background:#eef1f6;color:#14213d}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) #tip{background:#eef1f6;color:#14213d}}
+
+/* --- top bar --- */
+.top{background:var(--navy);color:#fff}
+.top .wrap{display:flex;align-items:center;gap:18px;min-height:60px;flex-wrap:wrap}
+.brand{font-family:Fraunces,serif;font-size:19px;font-weight:650;white-space:nowrap}
+.brand i{color:var(--amber);font-weight:500}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tabs button{background:transparent;border:0;color:#c9d0de;padding:8px 12px;border-radius:8px;font-weight:600}
+.tabs button.on{background:rgba(255,255,255,.12);color:#fff}
+.top .who{margin-left:auto;font-size:13px;color:#c9d0de;display:flex;gap:10px;align-items:center}
+.top .who button{background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:999px;padding:4px 10px;font-size:12px}
+main{padding:24px 0 60px}
+.section-head{display:flex;align-items:flex-end;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.section-head p{margin:0}
+
+/* --- stat tiles --- */
+.tile .k{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-2);font-weight:600}
+.tile .v{font-family:Fraunces,serif;font-size:30px;font-weight:650;margin:4px 0 2px;font-variant-numeric:tabular-nums}
+.tile .s{font-size:13px;color:var(--ink-3)}
+
+/* --- stage stepper --- */
+.stepper{display:flex;gap:6px;flex-wrap:wrap}
+.stepper button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-weight:600;font-size:13px;color:var(--ink-2)}
+.stepper button.on{background:var(--amber);border-color:var(--amber);color:#14213d}
+.stepper button.done{color:var(--ink-3);text-decoration:line-through}
+
+/* --- player (phone) --- */
+.phone{max-width:520px;margin:0 auto;padding:16px 16px 40px}
+.phone .hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.phone .hdr .brand{color:var(--ink);font-size:17px}
+.dots{display:flex;gap:6px;margin:6px 0 14px;flex-wrap:wrap}
+.dots button{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:11px;font-weight:700;color:var(--ink-2);padding:0}
+.dots button.done{background:var(--teal-soft);border-color:var(--teal);color:var(--teal-ink)}
+.dots button.cur{background:var(--amber);border-color:var(--amber);color:#14213d}
+.problem{background:var(--navy);color:#fff;border-radius:var(--radius);padding:16px 18px;margin-bottom:14px}
+.problem .code{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);font-weight:700}
+.problem h2{color:#fff;font-size:20px;margin:4px 0 6px}
+.problem p{margin:0;color:#dfe4ee;font-size:14px}
+.q{font-weight:600;margin:0 0 10px}
+.menu{display:flex;flex-direction:column;gap:6px}
+.menu button{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:11px 14px;text-align:left;color:var(--ink);min-height:46px}
+.menu button .p{font-weight:700;font-size:17px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.menu button.sel{background:var(--amber);border-color:var(--amber);color:#14213d;box-shadow:0 0 0 3px var(--amber-soft)}
+.menu button.nb{background:var(--teal-soft);border-color:var(--teal);color:var(--ink)}
+.menu button.p1{border-style:dashed;border-color:var(--ink-3)}
+.menu button:disabled{opacity:.35;cursor:not-allowed}
+.sticky-actions{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 30%);padding:18px 0 6px;display:flex;gap:8px;flex-wrap:wrap}
+.rule{display:flex;gap:10px;align-items:flex-start;margin:8px 0}
+.rule b{display:block}
+.rule .ic{width:28px;height:28px;border-radius:50%;background:var(--amber-soft);color:var(--amber-ink);display:grid;place-items:center;font-weight:700;flex:none}
+
+/* --- board --- */
+.board{background:var(--navy);min-height:100vh;color:#fff;padding:20px}
+.board h1{color:#fff}
+.board .chip{background:rgba(255,255,255,.12);color:#fff}
+.boardgrid{display:grid;gap:0;margin-top:16px;border-radius:12px;overflow:hidden}
+.boardgrid .cell{border-bottom:1px solid rgba(255,255,255,.08);padding:6px 8px;min-height:40px;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.boardgrid .item{font-size:14px;color:#dfe4ee}
+.boardgrid .item b{color:var(--amber);font-variant-numeric:tabular-nums}
+.boardgrid .hdr{font-weight:700;color:var(--amber);font-size:13px;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid rgba(255,255,255,.2)}
+.tok{width:18px;height:18px;border-radius:50%;background:var(--amber);border:2px solid var(--navy);display:inline-block}
+.tok.cant{background:transparent;border:2px dashed #dfe4ee}
+
+/* --- editors --- */
+.edtable input,.edtable select,.edtable textarea{padding:6px 8px}
+.edtable td{padding:4px}
+.warn{background:var(--amber-soft);color:var(--amber-ink);padding:10px 12px;border-radius:8px;font-size:13px;margin:10px 0}
+.err{background:var(--danger-soft);color:var(--danger);padding:10px 12px;border-radius:8px;font-size:13px;margin:10px 0}
+.ok{background:var(--teal-soft);color:var(--teal-ink);padding:10px 12px;border-radius:8px;font-size:13px;margin:10px 0}
+.modal-bg{position:fixed;inset:0;background:rgba(10,15,25,.55);display:flex;align-items:flex-start;justify-content:center;z-index:50;overflow:auto;padding:30px 12px}
+.modal{background:var(--surface);border-radius:var(--radius);max-width:900px;width:100%;padding:22px;box-shadow:var(--shadow)}
+details summary{cursor:pointer;font-weight:600}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);margin:4px 0 8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart text{fill:var(--ink-2);font-size:12px;font-family:Inter,sans-serif}
+.chart .lbl{fill:var(--ink);font-weight:500}
+.chart .grid line{stroke:var(--line)}
+.qr{background:#fff;padding:12px;border-radius:10px;display:inline-block}
+.bigcode{font-family:Fraunces,serif;font-size:34px;font-weight:650;letter-spacing:.06em}
+.login{max-width:440px;margin:6vh auto;padding:0 16px} .login.two{max-width:880px}
+.doors{display:grid;gap:16px;margin-top:16px} @media (min-width:540px){ .login.two .doors{grid-template-columns:repeat(2,minmax(0,1fr))} }
+.door .doorhead{display:flex;gap:12px;align-items:flex-start} .door h2{margin:0 0 4px;font-size:22px}
+.door .dooric{font-style:normal;width:40px;height:40px;flex:none;border-radius:10px;background:var(--amber-soft);display:flex;align-items:center;justify-content:center;font-size:20px}
+.door label{text-transform:none;letter-spacing:0;font-size:14px;font-weight:600;margin:14px 0 6px}
+.hide{display:none!important}
+/* --- facilitator guidance --- */
+.lead{color:var(--ink-2);margin:0;max-width:760px}
+.hint{font-size:13.5px;color:var(--ink-2);line-height:1.5}
+.stepnum{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--amber-soft);color:var(--amber-ink);font:700 13px Inter,sans-serif;margin-right:6px;vertical-align:2px}
+.steps-list{display:flex;flex-direction:column;gap:12px}
+.step{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.step .num{width:40px;height:40px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font:700 17px Inter,sans-serif;flex:none}
+.step.done .num{background:var(--teal)}
+.step h3{margin:0 0 2px} .step p{margin:0 0 4px;color:var(--ink-2);font-size:14px}
+.step .actions{display:flex;gap:8px;flex-wrap:wrap}
+.flowlist{padding-left:20px;margin:0} .flowlist li{margin:6px 0}
+.empty{text-align:center;padding:28px}
+.howto{background:var(--amber-soft);color:var(--ink);border-radius:10px;padding:12px 14px;font-size:14px;margin-bottom:16px;line-height:1.55}
+.runlayout{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(260px,1fr);gap:16px;align-items:start}
+.runmain,.runside{display:flex;flex-direction:column;gap:16px;min-width:0}
+@media (max-width:900px){ .runlayout{grid-template-columns:1fr} }
+.nowcard .k,.upnext .k{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2);font-weight:700}
+.nowcard h2{font-size:26px;margin:4px 0 6px}
+.clock{font-family:Fraunces,serif;font-size:56px;font-weight:650;line-height:1.1;font-variant-numeric:tabular-nums;color:var(--teal-ink)}
+.clock small{font-family:Inter,sans-serif;font-size:16px;font-weight:500;color:var(--ink-2)}
+.clock.warn{color:var(--amber-ink)} .clock.over{color:var(--danger)}
+.tbar{height:10px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin:8px 0 4px}
+.tbar i{display:block;height:100%;background:var(--teal);transition:width .5s}
+.tbar i.warn{background:var(--amber)} .tbar i.over{background:var(--danger)}
+.overline{min-height:20px;font-size:14px;font-weight:600;color:var(--amber-ink)}
+.overtxt{color:var(--danger);font-weight:700}
+.say{background:var(--surface-2);border-radius:10px;padding:10px 12px;margin:10px 0 0;font-size:15px}
+.upnext{border:1px dashed var(--line);border-radius:10px;padding:10px 12px;margin-top:14px}
+.btn.bigbtn{padding:12px 20px;font-size:16px}
+.btn.danger{color:var(--danger)}
+/* --- player home --- */
+.parts{display:flex;flex-direction:column;gap:10px;margin:14px 0}
+.part{display:flex;align-items:center;gap:12px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);color:var(--ink);min-height:76px}
+.part b{display:block;font-size:17px} .part .small{color:var(--ink-2)}
+.part .st{font-size:13px;font-weight:700;color:var(--ink-2);white-space:nowrap}
+.part.done{border-color:var(--teal)} .part.done .st{color:var(--teal-ink)}
+.part:hover{border-color:var(--ink-3)}
+.homebtn{margin:-4px 0 8px -10px}
+/* --- resident phone: larger, plainer --- */
+.phone{font-size:16px}
+.phone label{text-transform:none;letter-spacing:0;font-size:15px;color:var(--ink);font-weight:600;margin:14px 0 6px}
+.phone input,.phone select{font-size:16px;min-height:48px}
+.opt{text-transform:none;font-weight:500;color:var(--ink-3);letter-spacing:0}
+.btn.big{width:100%;justify-content:center;padding:14px 18px;font-size:17px;margin-top:16px}
+.btn.big-inline{padding:12px 20px;font-size:16px}
+.btn.tall{justify-content:center;padding:13px 10px;font-size:15px}
+.hint{font-size:14px;color:var(--ink-2);margin:-4px 0 12px}
+.menu button{min-height:54px;font-size:16px}
+.menu button .lbl{flex:1}
+.menu button .p small{font-size:12px;font-weight:500;opacity:.75;margin-right:2px}
+.menu button.cantopt{border-style:dashed;margin-top:8px;color:var(--ink-2)}
+.menu button.cantopt.sel{color:#14213d}
+.prog{margin-bottom:12px}
+.prog .bar{height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin-bottom:8px}
+.prog .bar i{display:block;height:100%;background:var(--teal);transition:width .3s}
+.ladder{display:flex;flex-direction:column;gap:6px;margin:12px 0}
+.ladrow{display:flex;justify-content:space-between;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:11px 14px;font-size:16px}
+.ladrow .lbl{flex:1} .ladrow .p{font-weight:700;font-size:17px;white-space:nowrap} .ladrow .p small{font-size:12px;font-weight:500;opacity:.75}
+.ladrow.sel{background:var(--amber);border-color:var(--amber);color:#14213d}
+.ladrow.nb{background:var(--teal-soft);border-color:var(--teal)}
+.qs{padding-left:22px;margin:6px 0} .qs li{font-size:17px;margin:6px 0}
+.total{display:flex;flex-direction:column;gap:2px;background:var(--amber-soft);border-radius:10px;padding:12px 14px;margin:14px 0}
+.total b{font-family:Fraunces,serif;font-size:26px;color:var(--ink)}
+.steps{padding-left:20px} .steps li{margin:4px 0}
+.wsrow{border-top:1px solid var(--line);padding:4px 0 12px;margin-top:8px}
+.problem p{font-size:16px;line-height:1.55}
+.boardwrap{overflow-x:auto}
+.boardgrid .hdr .sub{text-transform:none;letter-spacing:0;color:#c9d0de;font-weight:500;font-size:12px}
+.boardgrid .item{font-size:15px}
+.tok{width:20px;height:20px}
+:focus-visible{outline:3px solid var(--series-1);outline-offset:2px}
+@media (max-width:640px){ h1{font-size:23px} .tile .v{font-size:24px} .card{padding:14px} }
+@media print{.top,.noprint{display:none!important} body{background:#fff} .card{box-shadow:none}}
+
+/* --- v3: table recorder --- */
+.pricelist{display:flex;flex-direction:column;gap:2px;margin-top:10px}
+.pricerow{display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);padding:8px 0}
+.pricerow label{flex:1;margin:0;display:flex;flex-direction:column;font-weight:500}
+.dollar{display:flex;align-items:center;gap:4px;width:130px}
+.dollar span{font-weight:700;color:var(--ink-2)} .dollar input{font-size:18px;text-align:right}
+.scalelist{margin:12px 0;border-top:1px solid var(--line)}
+.scalerow{display:flex;justify-content:space-between;gap:10px;padding:10px 2px;border-bottom:1px solid var(--line);font-size:16px}
+.scalerow b{font-size:20px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.steplist{display:flex;flex-direction:column;gap:6px}
+.steprow{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 8px 8px 14px}
+.steprow.has{border-color:var(--amber);background:var(--amber-soft)}
+.steprow .lbl{flex:1;display:flex;flex-direction:column;font-size:15px}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:24px;font-weight:600;color:var(--ink);line-height:1}
+.stepper button:disabled{opacity:.3}
+.stepper output{min-width:28px;text-align:center;font:700 22px Inter,sans-serif;font-variant-numeric:tabular-nums}
+.warntxt{color:var(--danger);font-weight:600}
+.three{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:8px;margin:14px 0;text-align:center}
+.three div{border:1px solid var(--line);border-radius:10px;padding:10px 6px;display:flex;flex-direction:column;gap:2px}
+.three .mid{background:var(--amber-soft);border-color:var(--amber)}
+.three span{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-2);font-weight:700}
+.three b{font-family:Fraunces,serif;font-size:24px} .three small{font-size:12px;color:var(--ink-2)}
+.howtoplay{margin:0 0 6px;font-size:15px} .howtoplay ol{padding-left:20px;margin:6px 0}
+.notes{border-top:1px solid var(--line);padding:10px 0} .notes ul{margin:6px 0 0;padding-left:20px} .notes li{margin:4px 0;font-size:14px}
+.bigwait{text-align:center;padding:12vh 20px;color:#dfe4ee} .bigwait h2{color:#fff;font-size:40px} .bigwait p{font-size:22px}
+.bigscale{max-width:900px;margin:24px auto 0}
+.bsrow{display:flex;justify-content:space-between;gap:20px;padding:12px 6px;border-bottom:1px solid rgba(255,255,255,.12);font-size:24px;color:#dfe4ee}
+.bsrow b{color:var(--amber);font-size:30px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.toknum{display:inline-grid;place-items:center;min-width:34px;height:28px;padding:0 8px;border-radius:99px;background:var(--amber);color:#14213d;font-weight:800}
+
+/* --- v4: Trust Valuation Lab --- */
+.hide{display:none!important}
+.ttable td{vertical-align:top}
+.tchip{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:6px 10px}
+.tchip .x{border:0;background:none;color:var(--danger);cursor:pointer;font-size:12px;padding:0 0 0 2px}
+.chpick{display:flex;gap:6px;flex-wrap:wrap}
+.chpick button{min-width:46px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font:600 15px/1 inherit;color:inherit;cursor:pointer}
+.chpick button.has{border-color:var(--teal)} .chpick button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+table.dtable td{vertical-align:middle} table.dtable .lineno{margin-right:4px}
+.board .backbtn{background:transparent;color:#dfe4ee;border-color:rgba(255,255,255,.35);margin-bottom:10px}
+.subtabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin:0 0 16px}
+.subtabs button{border:0;background:transparent;padding:10px 14px;font-weight:600;color:var(--ink-2);border-bottom:3px solid transparent;margin-bottom:-1px}
+.subtabs button.on{color:var(--ink);border-bottom-color:var(--amber)}
+.lineno{display:inline-grid;place-items:center;min-width:24px;height:24px;padding:0 4px;border-radius:6px;background:var(--surface-2);font:700 12px Inter,sans-serif;color:var(--ink-2);margin-right:4px}
+.medcell{background:var(--amber-soft);padding:2px 6px;border-radius:6px}
+.linegrid td.linecell{position:relative;min-width:56px}
+.linecell .lbar{position:absolute;left:4px;top:6px;bottom:6px;background:color-mix(in srgb, var(--series-1) 30%, transparent);border-radius:4px;max-width:calc(100% - 8px)}
+.linecell .lnum{position:relative;font-weight:700}
+.linecell.med{outline:3px solid var(--amber);outline-offset:-3px}
+.medrow td{background:var(--surface-2)}
+th .sub,td .sub{font-size:11px;font-weight:500;text-transform:none;letter-spacing:0;color:var(--ink-3)}
+.bars,.bigbars{display:flex;flex-direction:column;gap:8px;margin:8px 0}
+.barrow{display:grid;grid-template-columns:minmax(140px,1.2fr) 2fr auto;gap:10px;align-items:center}
+.barrow .bt{height:16px;background:var(--surface-2);border-radius:6px;overflow:hidden}
+.barrow .bt i{display:block;height:100%;background:var(--series-1);border-radius:6px}
+.barrow .bt i.open{background:repeating-linear-gradient(45deg,var(--series-1),var(--series-1) 6px,transparent 6px,transparent 10px)}
+.barrow .bv{font-variant-numeric:tabular-nums;white-space:nowrap}
+.sumbox{background:var(--amber-soft);border-radius:10px;padding:12px 14px;margin:12px 0;display:flex;flex-direction:column;gap:2px}
+.sumbox b{font-family:Fraunces,serif;font-size:26px} .sumbox small{color:var(--ink-2)}
+.statrow,.bigstat{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin:8px 0 12px}
+.statrow div,.bigstat div{background:var(--surface-2);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column}
+.statrow b{font-family:Fraunces,serif;font-size:28px} .statrow span{font-size:13px;color:var(--ink-2)}
+.evgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:10px}
+.evcard{border:1px solid var(--line);border-radius:10px;padding:12px}
+.evh{font-weight:700;margin-bottom:6px} .evk{display:flex;gap:12px;font-size:13px;color:var(--ink-2);margin-bottom:6px} .evk b{color:var(--ink);font-size:16px}
+.quote{font-style:italic;margin:6px 0;font-size:14px;border-left:3px solid var(--amber);padding-left:8px}
+.checklist{display:flex;flex-direction:column;gap:6px}
+.chk{display:flex;gap:10px;align-items:flex-start;text-transform:none;letter-spacing:0;font-size:14px;font-weight:500;color:var(--ink);margin:0}
+.chk input{width:auto;margin-top:3px}
+.chrow{border-top:1px solid var(--line);padding:10px 0} .chrow textarea{margin-top:6px;min-height:64px}
+.chnum{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;font-size:13px;flex:none}
+.checkgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;margin-top:10px}
+.checkgrid>div{margin:0}
+.note{background:var(--surface-2);color:var(--ink);padding:10px 12px;border-radius:8px;font-size:13px}
+.report h3{margin-top:22px} .report h2{margin-bottom:2px}
+input.slip{width:48px;text-align:center;padding:6px 4px;font-variant-numeric:tabular-nums}
+input.slip.bad{border-color:var(--danger);background:var(--danger-soft)} input.slip.saved{border-color:var(--teal)}
+.phone.wide{max-width:640px}
+.pairbox{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0}
+.pairbox.new{border-style:dashed}
+.colorbtn{border:2px solid var(--c);background:color-mix(in srgb, var(--c) 14%, var(--surface));color:var(--ink);border-radius:999px;padding:7px 12px;font-weight:700;font-size:13px}
+.person{border-top:1px solid var(--line);padding:8px 0} .person summary{cursor:pointer;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.dot{width:14px;height:14px;border-radius:50%;display:inline-block;flex:none}
+.placerow{border-top:1px solid var(--line);padding:10px 0}
+.placeline{margin-top:6px;flex-wrap:nowrap} .placeline select{min-width:0}
+.tok-code{font-weight:700;font-size:13px;white-space:nowrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:7px 12px;font-weight:600;font-size:13px;color:var(--ink-2)}
+.seg button.on{background:var(--navy);color:#fff}
+.seg.wide{display:flex;flex-wrap:wrap;border-radius:10px} .seg.wide button{flex:1;min-width:120px}
+.evrow{border-top:1px solid var(--line);padding:10px 0}
+.boardnav{flex-wrap:wrap;justify-content:flex-end;max-width:640px}
+.boardbody{margin-top:20px}
+.board .bigtable{width:100%;color:#eef1f6;font-size:18px}
+.board .bigtable th{color:var(--amber);font-size:14px;border-bottom:2px solid rgba(255,255,255,.2)}
+.board .bigtable td{border-bottom:1px solid rgba(255,255,255,.1);padding:8px 10px}
+.board .muted,.board .sub{color:#aab3c3}
+.board .medcell{background:var(--amber);color:#14213d}
+.board .lineno{background:rgba(255,255,255,.12);color:#fff}
+.board .medrow td{background:rgba(255,255,255,.08)}
+.board .linecell .lbar{background:rgba(242,183,5,.35)}
+.board .bigbars .barrow{font-size:22px;color:#eef1f6} .board .bigbars .bt{height:26px;background:rgba(255,255,255,.1)} .board .bigbars .bt i{background:var(--amber)}
+.board .sumbox{background:rgba(242,183,5,.15);color:#eef1f6} .board .sumbox b{font-size:40px;color:var(--amber)} .board .sumbox small{color:#c9d0de;font-size:16px}
+.board .bigstat div{background:rgba(255,255,255,.08);color:#dfe4ee} .board .bigstat b{font-family:Fraunces,serif;font-size:56px;color:var(--amber)} .board .bigstat span{font-size:18px}
+.board .evgrid.big .evcard{border-color:rgba(255,255,255,.15);color:#eef1f6} .board .evgrid.big .evh{font-size:20px} .board .evgrid.big .quote{font-size:20px} .board .evk{color:#c9d0de} .board .evk b{color:#fff}
+.bignote{color:#ffd65a;font-size:18px}
+/* the shared menu fits one projector screen: 13 rows sized to the window height */
+.board .bigscale{margin:14px auto 0;max-width:1000px}
+.board .bsrow{padding:max(4px, calc((100vh - 360px) / 13 * .14)) 6px;font-size:clamp(16px, calc((100vh - 360px) / 13 * .5), 26px)}
+.board .bsrow b{font-size:clamp(18px, calc((100vh - 360px) / 13 * .6), 32px)}
+.board .bigtable .sub{font-size:15px}
+.board .bigbars .barrow .tie{font-size:14px;color:#14213d;background:#c9d0de;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:3px}
+.barrow .tie{font-size:11px;background:var(--surface-2);border-radius:6px;padding:1px 6px;margin-left:6px;color:var(--ink-2)}
+.board .evgrid.big{grid-template-columns:repeat(3,minmax(0,1fr))} .board .evgrid.big .quote{font-size:18px}
+/* the reveal */
+.reveal{max-width:1100px;margin:0 auto;color:#eef1f6}
+.reveal .rk{font-size:min(2.6vh,20px);color:#c9d0de;margin:0}
+.reveal .rbig{font-family:Fraunces,serif;font-size:min(10vh,104px);line-height:1.05;color:var(--amber);margin:0;font-variant-numeric:tabular-nums}
+.reveal .rstack{display:flex;height:min(7vh,60px);border-radius:12px;overflow:hidden;background:rgba(255,255,255,.08);margin:2vh 0 1.2vh}
+.reveal .rseg{height:100%;width:0;transition:width .7s ease-out;display:flex;align-items:center;justify-content:center;font:700 22px/1 Inter,sans-serif;color:#14213d;overflow:hidden;white-space:nowrap;border-right:2px solid var(--navy)}
+.reveal .rleg{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:min(2.2vh,17px);color:#c9d0de}
+.reveal .rleg i{display:inline-block;width:14px;height:14px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.reveal .rbeat{opacity:0;transform:translateY(10px);transition:all .6s ease-out;margin-top:2.6vh}
+.reveal .rbeat.on{opacity:1;transform:none}
+.reveal .rcmp{font-size:min(4vh,34px);line-height:1.3;margin:0} .reveal .rcmp b{color:var(--amber)}
+.reveal .rcomm{font-family:Fraunces,serif;font-size:min(7.5vh,68px);color:#fff;margin:2px 0 0;font-variant-numeric:tabular-nums}
+.reveal .rnote{font-size:min(2.2vh,17px);color:#aab3c3;margin:6px 0 0}
+.reveal .rctl{display:flex;gap:10px;align-items:center;margin-top:2.4vh}
+.board.revealmode .boardbody{margin-top:8px} .board.revealmode h1{font-size:28px;margin:4px 0 0} .board.revealmode .chip{display:none}
+/* notetaker header and tabs on small phones */
+.phone .hdr{flex-wrap:nowrap} .phone .hdr .chip{white-space:nowrap}
+.phone .subtabs{flex-wrap:nowrap;overflow-x:auto} .phone .subtabs button{padding:10px 10px;white-space:nowrap;font-size:15px}
+.countbar{position:sticky;bottom:0;z-index:5;margin:12px -16px -16px;padding:10px 16px;background:var(--navy);color:#fff;border-radius:0 0 12px 12px;display:flex;align-items:center;gap:10px;font-weight:600}
+.countbar.warn{background:#8a3b12} .countbar .btn{margin-left:auto}
+.seg.stack{display:flex;flex-direction:column;border-radius:10px} .seg.stack button{text-align:left;padding:12px 14px;font-size:15px;border-top:1px solid var(--line)} .seg.stack button:first-child{border-top:0}
+.chk.big{border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:14px;font-size:15px} .chk.big input{width:24px;height:24px;min-height:0;margin-top:0;flex:none}
+.pricenote{font-size:13px;color:#8a3b12;margin:2px 0 0}
+@media print{ .subtabs,.section-head .row,.noprint{display:none!important} }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="tip"></div>
+
+<script>
+/* ============================================================
+   Trust Valuation Lab — app for the Session Manual (Levinger, 21 Oct 2026)
+   Roles: the DATA LEAD runs the lab screen; NOTETAKERS (one per table) record their table on their
+   own signed-in devices; the BIG SCREEN shows room results.
+   ============================================================ */
+const SB_URL = 'https://qkedzkejcxurlbvgrejn.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrZWR6a2VqY3h1cmxidmdyZWpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMTYwOTUsImV4cCI6MjA5Mjc5MjA5NX0.wiknJIYjHkP5oJd3Z3H4fgS7GIQJtY969xCnbEplz80';
+const sb = supabase.createClient(SB_URL, SB_KEY);
+/* Sandbox testing: a shared account opened with a tester code (the code is its password).
+   Set to '' (and delete the account in Supabase) before real labs. */
+const TESTER_EMAIL = 'cpta-tester@rootchange.org';
+
+const QUESTION = 'For your household, which item on the menu costs about the same as what this challenge costs your household in a year, counting money and time?';
+
+/* Priority issues: starting sets of six distrust challenges. Each lab gets its own editable copy.
+   Health follows the manual; Education and Civic are drafts for review. */
+const ISSUES = {
+  health: { name: 'Public health and safety', short: 'Health', challenges: [
+    {code:'1', title:'Emergency alerts and evacuation orders', card:"When you or your neighbors don't fully trust official alerts and evacuation orders, households wait to see what others do, check other sources, or leave late. That can mean lost work, extra travel and lodging, or damage that could have been avoided."},
+    {code:'2', title:'Outbreak and vaccine guidance', card:"When outbreak and vaccine guidance isn't trusted, households make extra doctor or pharmacy visits, spend hours checking the advice elsewhere, or keep children home longer than needed."},
+    {code:'3', title:'Free clinics, screenings and preventive services', card:"When free clinics and screenings aren't trusted, households pay elsewhere for the same care, travel farther, or go without and pay more later."},
+    {code:'4', title:'Food, water and air quality advisories', card:"When advisories about food, water and air aren't trusted, households throw out food, keep buying bottled water after a notice is lifted, or buy filters and gear just in case."},
+    {code:'5', title:'Police and emergency response', card:"When police and emergency response aren't trusted, households pay for extra locks, cameras or private help, don't report losses, or lose time handling problems on their own."},
+    {code:'6', title:'Sorting conflicting health and safety information', card:"When official health and safety information competes with conflicting claims, households spend hours comparing sources and settling family debates before deciding what to do."}]},
+  education: { name: 'Schools and education', short: 'Education', draft: true, challenges: [
+    {code:'1', title:'School closure and safety alerts', card:"When you or your neighbors don't fully trust the district's alerts about closures, delays and safety, households keep children home on the wrong days, miss work, or spend hours checking other sources."},
+    {code:'2', title:'Grades and progress reports', card:"When report cards and progress updates aren't trusted, households pay for outside tutoring or testing just to check how a child is really doing."},
+    {code:'3', title:'Free school programs', card:"When free meals, after-school programs and tutoring aren't trusted, households pay for alternatives or go without."},
+    {code:'4', title:'Learning support and special education', card:"When the school's assessments and support plans aren't trusted, households pay for private evaluations or advocates, or spend many hours pushing back on the process."},
+    {code:'5', title:'School choice and enrollment information', card:"When official information about schools and enrollment isn't trusted, households spend hours researching, pay application fees elsewhere, or even pay for private school or move."},
+    {code:'6', title:'Conflicting information about what is taught', card:"When what schools say about their teaching competes with conflicting claims, households spend hours at meetings, reading sources and settling family debates."}]},
+  civic: { name: 'Local government and public processes', short: 'Civic', draft: true, challenges: [
+    {code:'1', title:'Voting and election information', card:"When you or your neighbors don't fully trust official information about where, when and how to vote, households spend hours double-checking, take time off to vote in person just to be sure, or miss chances to vote."},
+    {code:'2', title:'Permits, benefits and public services', card:"When applications for permits, benefits and city services aren't trusted to be handled fairly, households pay middlemen or extra fees, or give up services they qualify for."},
+    {code:'3', title:'Property taxes, fees and bills', card:"When tax assessments, fees and public utility bills aren't trusted, households pay for appeals or advisers, or spend hours checking every bill."},
+    {code:'4', title:'Public meetings and local decisions', card:"When notices about public meetings, zoning and road work aren't trusted, households spend time and money organizing, or carry costs from changes they didn't see coming."},
+    {code:'5', title:'Police and emergency services', card:"When calling for help isn't trusted to work, households pay for extra locks, cameras or private security, or carry losses that go unreported."},
+    {code:'6', title:'Official news and announcements', card:"When local government announcements compete with conflicting claims, households spend hours comparing sources and talking it through before acting."}]}
+};
+function issueOf(s){ return ISSUES[s?.module] || ISSUES.health; }
+function challengesOf(s){ return (s && Array.isArray(s.problems) && s.problems.length === 6 && s.problems.every(p => /^[1-6]$/.test(p.code))) ? s.problems : issueOf(s).challenges; }
+
+/* Run of show — the manual's three-hour plan */
+const RUN_OF_SHOW = [
+  {name:'Welcome, purpose, ground rules', min:15, lead:'Lead facilitator', data:'Check-in profile (at the door)', prompt:'Read the five ground rules. Explain that the six challenges come from stories residents told CPTAs, organized in the Trust Cube.'},
+  {name:'Part 1: tables price the menu items', min:20, lead:'Table hosts', data:"Each table's prices", prompt:'“Before we talk about distrust, we need a shared price list in this community’s own numbers. At your table, agree on what each item usually costs a household like yours around here.” Notetakers enter each table’s prices.'},
+  {name:'Room results: the shared price menu', min:10, lead:'Data lead', data:'The shared price menu', prompt:'Show every table’s prices on the big screen, with the average for each item, then set the shared menu. “Here’s what every table said. Please write these numbers on your menu. From now on, everyone in the room uses the same prices.” Table hosts check each menu matches the screen.'},
+  {name:'Introduce the six challenges; practice round', min:10, lead:'Lead facilitator', data:'None', prompt:'Read each card title aloud. One year, money and time; this is about distrust, not who is right. Practice: “The bus is often late, so you leave 20 minutes early every day.” Two volunteers say which line and why.'},
+  {name:'Task 1: individual valuation', min:20, lead:'Lead facilitator', data:'None', prompt:'“Work on your own for this part. For each card, find the line on the menu that costs about the same as what this challenge costs your household over a year, counting money and time. Write the line number on your slip.”'},
+  {name:'Task 2: partner discussion', min:20, lead:'Table hosts', data:'None', prompt:'Partners take turns explaining each valuation, using the prompts on the table tent. They may change their valuations after talking; the change shows up in Task 3. If time runs short, shorten this task.'},
+  {name:'Task 3: placement', min:15, lead:'Table hosts', data:'The table’s board, counted by its notetaker', prompt:'Each table has one board. “Now put your cards on the board where your values landed, with your token on each one. You don’t have to agree. Different answers are useful.” Notetakers count the tokens on each line and photograph the board.'},
+  {name:'Task 4: evidence', min:20, lead:'Table hosts', data:'Evidence, recorded by notetakers', prompt:'“What makes you confident in your number? Write it on an evidence card and put it next to that challenge.” Ask consent before any card is read aloud.'},
+  {name:'Break: data lead compiles results', min:10, lead:'Data lead', data:'Final checks', prompt:'Check that every table’s board is recorded for all six challenges, then get the results ready for the big screen.'},
+  {name:'Group discussion with results on screen', min:30, lead:'Lead facilitator', data:'Discussion notes', prompt:'Show the results on the big screen. Ask: Which result surprised you? Which evidence was most convincing? Who probably pays more than these numbers show?'},
+  {name:'Close: what happens next, thanks', min:10, lead:'Lead facilitator', data:'Collect slips and unplaced evidence cards', prompt:'Summarize three to five takeaways in the room’s own words. Explain that CPTAs will combine the results with the Trust Cube, and the findings go to the deliberative assembly.'}];
+
+/* Before the session — the manual's preparation steps */
+const PREP = [
+  ['issue', 'Confirm the priority issue with the CPTAs and coalition partners.'],
+  ['cards', 'Write the six distrust challenge cards from the Trust Cube stories (check them under Challenges).'],
+  ['menu', 'Set the price menu: the standard 13 lines, adjusted only if an item makes no sense locally. Print it with no prices.'],
+  ['evidence', 'Print blank evidence cards (10 per participant), plus any pre-printed data cards.'],
+  ['tokens', 'Prepare tokens: six per participant, one for each challenge card.'],
+  ['app', 'Load the app: the issue, the six challenges, the menu items and the tables (above). Test price entry, the average displays and board recording on every notetaker\'s device.'],
+  ['recruit', 'Recruit 40–60 people to seat 30–50, through trusted messengers in the target zip codes. The anonymous check-in profile is recorded as counts per table.'],
+  ['room', 'Prepare the room: tables of no more than 6, a screen visible from every seat, and a placement board for each table.'],
+  ['brief', 'Brief staff: a one-hour rehearsal with facilitators, notetakers and table hosts.']];
+
+const GROUND_RULES = ['Every household\'s experience counts, and there are no wrong valuations.', 'We\'re measuring what distrust costs, not deciding who is right about any institution.', 'Your first answer is your own: work alone in Task 1.', 'Partners don\'t need to agree.', 'Stories shared here stay here. Nothing is recorded with your name.'];
+
+/* The standard menu: lines 2–12 are priced in Part 1; line 1 is $0; line 13 has no price */
+const STANDARD_MENU = ['A month of music streaming','A family pizza night','A month of a basic phone plan','A month of home internet','A week of groceries for two','A month of household utilities','A month of groceries','A month of full-time childcare',"A month's rent, modest apartment",'A used-car down payment','A reliable used car'];
+const AGE_BANDS = ['Under 25','25–44','45–64','65 and over'];
+const YEARS = ['Under 2 years','2–9 years','10 years or more'];
+const EVIDENCE_KINDS = { lived: 'My household’s experience', seen: 'Seen in the community', data: 'Data, a record or a report' };
+
+/* ============================================================
+   SMALL HELPERS
+   ============================================================ */
+const $ = (s, el=document) => el.querySelector(s);
+const $$ = (s, el=document) => [...el.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt$ = v => (v == null || isNaN(v)) ? '—' : '$' + Math.round(v).toLocaleString('en-US');
+const pct = (v, d=0) => v == null || isNaN(v) ? '—' : (v*100).toFixed(d) + '%';
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} }
+};
+function toast(msg, err=false){
+  $$('.toast').forEach(x => x.remove());
+  const t = document.createElement('div'); t.className = 'toast' + (err ? ' err' : ''); t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), err ? 5000 : 2400);
+}
+function errMsg(e){ return (e && (e.message || e.error_description)) || String(e); }
+const params = new URLSearchParams(location.search);
+let pollTimer = null, tickTimer = null;
+function stopPoll(){ if (pollTimer) clearInterval(pollTimer); if (tickTimer) clearInterval(tickTimer); pollTimer = tickTimer = null; }
+function cleanCode(v){
+  v = decodeURIComponent(String(v || '')).trim();
+  const all = [...v.matchAll(/(?:join|board|note)=([^&#?\s]+)/gi)]; if (all.length) v = all[all.length-1][1];
+  return v.replace(/^[?#=\s]+/, '').replace(/[\s"'<>]/g, '').toUpperCase();
+}
+const appUrl = (k, code) => location.origin + location.pathname + '?' + k + '=' + encodeURIComponent(code);
+function makeCode(name){
+  const pre = (name || 'LAB').replace(/\(.*?\)/g,'').split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0,3) || 'LAB';
+  const al = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s = '';
+  for (let i=0;i<4;i++) s += al[Math.floor(Math.random()*al.length)];
+  return pre + '-' + s;
+}
+function copyText(text, msg){
+  const done = () => toast(msg || 'Copied');
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
+  fallbackCopy(text, done);
+}
+function fallbackCopy(text, done){
+  const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); done(); } catch(e) { toast('Copy not allowed here — select and copy it by hand', true); } ta.remove();
+}
+/* copy the QR code as an image; if the browser won't allow it, download it instead */
+function copyQR(box, code){
+  const canvas = box && box.querySelector('canvas');
+  const img = box && box.querySelector('img');
+  const toBlob = () => new Promise(res => { if (canvas) return canvas.toBlob(res, 'image/png');
+    if (img && img.src) return fetch(img.src).then(r => r.blob()).then(res, () => res(null)); res(null); });
+  toBlob().then(blob => {
+    if (!blob) return toast('No QR image to copy', true);
+    const download = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `QR-${code}.png`; a.click(); toast('QR image downloaded'); };
+    if (navigator.clipboard && window.ClipboardItem && window.isSecureContext) navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(() => toast('QR image copied — paste it into a slide or document'), download);
+    else download();
+  });
+}
+function trunc(s, n){ s = String(s||''); return s.length > n ? s.slice(0, n-1) + '…' : s; }
+function confirmInline(btn, text){
+  if (btn.dataset.armed) return true;
+  const old = btn.textContent; btn.dataset.armed = '1'; btn.textContent = text;
+  setTimeout(() => { delete btn.dataset.armed; btn.textContent = old; }, 3000); return false;
+}
+document.addEventListener('mousemove', e => {
+  const t = e.target.closest && e.target.closest('[data-tip]'); const tip = $('#tip');
+  if (!t) { tip.style.display = 'none'; return; }
+  tip.innerHTML = t.getAttribute('data-tip'); tip.style.display = 'block';
+  tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (e.clientY + 14) + 'px';
+});
+async function fetchAll(table, cols, filterFn){
+  const out = []; const page = 1000;
+  for (let from = 0; ; from += page) {
+    let q = sb.from(table).select(cols).range(from, from + page - 1);
+    if (filterFn) q = filterFn(q);
+    const { data, error } = await q; if (error) throw error;
+    out.push(...data); if (data.length < page) break;
+  }
+  return out;
+}
+
+/* ============================================================
+   THE MENU
+   Line 1 = "This costs my household nothing" ($0, fixed)
+   Lines 2–12 = the eleven priced items (set by the room in Part 1)
+   Line 13 = "More than anything on the menu" (no price; reported separately)
+   ============================================================ */
+/* easy numbers for the room average: nearest $5 under $100, $10 from $100 to $1,000, $100 above $1,000 */
+function roundPrice(v){
+  v = +v; if (!(v > 0)) return 0;
+  const step = v < 100 ? 5 : v <= 1000 ? 10 : 100;
+  return Math.max(step, Math.round(v / step) * step);
+}
+function stats(vals){
+  vals = vals.filter(v => +v > 0).map(Number).sort((a,b) => a-b);
+  if (!vals.length) return { n: 0 };
+  const n = vals.length, mean = vals.reduce((a,b) => a+b, 0) / n;
+  const median = roundPrice(n % 2 ? vals[(n-1)/2] : (vals[n/2-1] + vals[n/2]) / 2);
+  return { n, mean, median, min: vals[0], max: vals[n-1] };
+}
+/* the menu as the room sees it: from the lab's adopted shared menu, else the place's item list */
+function menuOf(s, c){
+  const items = (c?.ladder || []).map((x, i) => ({ item: i, label: x.label }));
+  if (Array.isArray(s?.shared_menu) && s.shared_menu.length === items.length) return s.shared_menu;
+  return items.map(x => ({ ...x, price: null }));
+}
+function lineLabel(s, c, line){
+  if (line === 1) return 'This costs my household nothing';
+  if (line === 13) return 'More than anything on the menu';
+  return menuOf(s, c)[line-2]?.label ?? '?';
+}
+function lineValue(s, c, line){
+  if (line == null) return null; if (line === 1) return 0; if (line === 13) return null;
+  const p = menuOf(s, c)[line-2]?.price; return p == null ? null : +p;
+}
+function linePrice(s, c, line){
+  if (line === 1) return '$0'; if (line === 13) return 'no price';
+  const v = lineValue(s, c, line); return v == null ? '$ —' : fmt$(v);
+}
+function lineOptions(s, c, sel, extra=''){
+  return `<option value="">${extra || 'Not placed'}</option>` +
+    [...Array(13).keys()].map(i => 13 - i).map(l => `<option value="${l}" ${String(sel) === String(l) ? 'selected' : ''}>${l} · ${esc(trunc(lineLabel(s, c, l), 34))} (${linePrice(s, c, l)})</option>`).join('') +
+    `<option value="cant" ${sel === 'cant' ? 'selected' : ''}>Can't say</option>`;
+}
+
+/* ============================================================
+   DATA
+   ============================================================ */
+async function loadLab(sid){
+  const f = q => q.eq('session_id', sid);
+  const [tables, evidence, notes] = await Promise.all([
+    fetchAll('cvl_tables', 'id,session_id,table_no,people,prices,profile,board,created_at', f),
+    fetchAll('cvl_evidence', 'id,session_id,table_id,challenge,kind,summary,cost_money,cost_hours,cost_other,quote_ok,created_at', f),
+    fetchAll('cvl_notes', 'id,session_id,kind,body,author,created_at', f)]);
+  tables.sort((a,b) => String(a.table_no).localeCompare(String(b.table_no), undefined, {numeric:true}));
+  tables.forEach(t => { t.board = t.board || {}; });
+  return { tables, evidence, notes };
+}
+
+/* ============================================================
+   TABLES — a table's board is stored as token counts:
+   board[challenge][line] = tokens on that line (lines 1–13), board[challenge].cant = can't say
+   ============================================================ */
+const BOARD_KEYS = ['13','12','11','10','9','8','7','6','5','4','3','2','1','cant'];
+function boardCount(t, code){ const b = (t.board || {})[code] || {}; return BOARD_KEYS.reduce((n, k) => n + (+b[k] || 0), 0); }
+function tableUsed(t, d){ return (t.prices || []).some(v => +v > 0) || Object.keys(t.board || {}).some(k => boardCount(t, k) > 0) || d.evidence.some(e => e.table_id === t.id); }
+
+/* ============================================================
+   ANALYSIS — medians of menu lines, as the manual specifies
+   ============================================================ */
+function quantileLine(sorted, q){ if (!sorted.length) return null; return sorted[Math.min(sorted.length-1, Math.max(0, Math.round(q * (sorted.length-1))))]; }
+/* the tokens on a set of boards for one challenge, as a sorted list of lines */
+function linesFrom(boards, code){
+  const counts = {}; let cant = 0; const lines = [];
+  boards.forEach(t => { const b = (t.board || {})[code] || {};
+    for (let l = 1; l <= 13; l++) { const k = +b[l] || 0; if (k) { counts[l] = (counts[l] || 0) + k; for (let i = 0; i < k; i++) lines.push(l); } }
+    cant += +b.cant || 0; });
+  lines.sort((a, b) => a - b);
+  // the middle line: the lower middle when there's an even number, so it is always a real line
+  const med = lines.length ? lines[Math.floor((lines.length - 1) / 2)] : null;
+  return { counts, cant, lines, n: lines.length, med, lo: lines[0] ?? null, hi: lines[lines.length - 1] ?? null, line13: counts[13] || 0 };
+}
+function analyzeLab(c, s, d){
+  const ch = challengesOf(s), T = d.tables;
+  const per = ch.map(card => {
+    const L = linesFrom(T, card.code);
+    const q1 = quantileLine(L.lines, .25), q3 = quantileLine(L.lines, .75);
+    const ev = d.evidence.filter(e => e.challenge === card.code);
+    const kinds = { lived: 0, seen: 0, data: 0 }; ev.forEach(e => kinds[e.kind] = (kinds[e.kind]||0) + 1);
+    const med$ = arr => { arr = arr.filter(v => v != null && +v > 0).map(Number).sort((a,b) => a-b); return arr.length ? arr[Math.floor((arr.length-1)/2)] : null; };
+    return { code: card.code, title: card.title, ...L, medValue: L.med == null ? null : lineValue(s, c, L.med), q1, q3,
+      evidence: ev, kinds, evMoney: med$(ev.map(e => e.cost_money)), evHours: med$(ev.map(e => e.cost_hours)),
+      quotes: ev.filter(e => e.quote_ok && e.summary) };
+  });
+  const ranked = [...per].filter(x => x.med != null).sort((a,b) => (b.med === 13 ? Infinity : b.medValue ?? -1) - (a.med === 13 ? Infinity : a.medValue ?? -1));
+  const sum = per.reduce((t, x) => t + (x.med != null && x.med !== 13 ? (x.medValue || 0) : 0), 0);
+  const sumHas13 = per.some(x => x.med === 13);
+
+  // prices
+  const prices = (c.ladder || []).map((x, i) => ({ item: i, label: x.label, tables: T.map(t => ({ table: t.table_no, v: +((t.prices||[])[i]) || 0 })), ...stats(T.map(t => (t.prices||[])[i])) }));
+
+  // who took part: counts per table, never linked to anyone's answers
+  const tally = key => { const o = {}; T.forEach(t => Object.entries((t.profile || {})[key] || {}).forEach(([k, n]) => { if (+n) o[k] = (o[k]||0) + +n; })); return o; };
+  // each table: its board per challenge (middle line, lowest and highest token, can't say), and how complete it is
+  const perTable = T.map(t => {
+    const cards = ch.map(card => { const L = linesFrom([t], card.code); return { code: card.code, ...L, medValue: L.med == null ? null : lineValue(s, c, L.med), tokens: L.n + L.cant }; });
+    const done = cards.filter(x => x.tokens > 0 && (!t.people || x.tokens >= t.people)).length;
+    return { table: t, people: +t.people || 0, cards, done, tokens: cards.reduce((n, x) => n + x.tokens, 0),
+      short: cards.filter(x => t.people && x.tokens && x.tokens !== t.people).map(x => x.code),
+      evN: d.evidence.filter(e => e.table_id === t.id).length, line13: cards.reduce((n, x) => n + x.line13, 0), prices: (t.prices || []).filter(v => +v > 0).length };
+  });
+  const played = perTable.filter(x => x.tokens);
+  return { ch, per, ranked, sum, sumHas13, prices, perTable,
+    nPeople: T.reduce((n, t) => n + (+t.people || 0), 0), nTables: played.length,
+    profile: { household: tally('household'), age: tally('age'), years: tally('years') },
+    takeaways: d.notes.filter(n => n.kind === 'takeaway'), notes: d.notes.filter(n => n.kind === 'note') };
+}
+
+/* the reveal: the household total, compared with the room's own menu, then scaled to the place */
+function menuCompare(s, c, total){
+  const m = menuOf(s, c).map((x, i) => ({ line: i + 2, label: x.label, price: +x.price })).filter(x => x.price > 0);
+  if (!m.length || !(total > 0)) return null;
+  const near = m.reduce((b, x) => Math.abs(Math.log(x.price / total)) < Math.abs(Math.log(b.price / total)) ? x : b);
+  const ratio = total / near.price;
+  if (ratio >= .85 && ratio <= 1.18) return { kind: 'same', ...near };
+  const below = m.filter(x => x.price <= total).sort((a, b) => b.price - a.price)[0];
+  if (below && total >= 1.8 * below.price) return { kind: 'times', ...below, times: Math.round(total / below.price) };
+  return below ? { kind: 'more', ...below } : { kind: 'less', ...m[0] };
+}
+function bigMoney(v){
+  if (v >= 1e9) return 'about $' + (v / 1e9).toFixed(1).replace(/\.0$/, '') + ' billion';
+  if (v >= 1e6) return 'about $' + (v / 1e6).toFixed(1).replace(/\.0$/, '') + ' million';
+  if (v >= 1e4) return 'about $' + Math.round(v / 1e3).toLocaleString('en-US') + ',000';
+  return fmt$(v);
+}
+const REVEAL_COLORS = ['#f2b705','#f6c944','#f9d977','#fbe6a3','#fdf1cc','#ffffff'];
+
+/* ============================================================
+   DISPLAYS — shared by the big screen, the Run tab and the results summary
+   ============================================================ */
+const Display = {
+  prices(c, s, a, big=false){
+    if (!a.prices.length) return '<p class="muted">No menu items.</p>';
+    const tabs = a.prices[0].tables;
+    return `<div class="tablewrap"><table class="${big ? 'bigtable' : 'small'}"><thead><tr><th>Line</th><th>Item</th>${tabs.map(t => `<th class="num">T${esc(t.table)}</th>`).join('')}<th class="num">Average</th></tr></thead><tbody>
+      ${a.prices.map((p, i) => `<tr><td class="muted">${i + 2}</td><td>${esc(p.label)}</td>${p.tables.map(t => `<td class="num">${t.v ? fmt$(t.v) : '<span class="muted">—</span>'}</td>`).join('')}
+        <td class="num"><b class="medcell">${p.n ? fmt$(p.median) : '—'}</b></td></tr>`).join('')}
+      </tbody></table></div>${a.prices[0].n && a.prices[0].n < 5 ? `<p class="${big ? 'bignote' : 'hint'}">Only ${a.prices[0].n} table${a.prices[0].n === 1 ? '' : 's'} so far, so the averages rest on few tables.</p>` : ''}`;
+  },
+  menu(c, s, big=false){
+    const m = menuOf(s, c);
+    return `<div class="${big ? 'bigscale' : 'scalelist'}">${[13, ...m.map((_, i) => 12 - i), 1].map(l => `<div class="${big ? 'bsrow' : 'scalerow'}"><span><span class="lineno">${l}</span> ${esc(lineLabel(s, c, l))}</span><b>${l === 13 ? 'no price' : linePrice(s, c, l)}</b></div>`).join('')}</div>`;
+  },
+  medians(c, s, a, big=false){
+    const r = a.ranked; if (!r.length) return '<p class="muted">No boards recorded yet.</p>';
+    const max = Math.max(1, ...r.map(x => x.med === 13 ? 0 : x.medValue || 0));
+    const tied = x => x.med !== 13 && r.filter(y => y.med !== 13 && y.medValue === x.medValue).length > 1;
+    return `<div class="${big ? 'bigbars' : 'bars'}">${r.map(x => `<div class="barrow"><span class="bl"><b>${esc(x.code)}</b> · ${esc(x.title)}${tied(x) ? '<span class="tie">tied</span>' : ''}</span>
+        <span class="bt"><i style="width:${x.med === 13 ? 100 : Math.max(2, 100 * (x.medValue||0) / max)}%" class="${x.med === 13 ? 'open' : ''}"></i></span>
+        <b class="bv">${x.med === 13 ? 'More than anything' : fmt$(x.medValue)}</b></div>`).join('')}</div>
+      ${r.some(tied) ? `<p class="${big ? 'bignote' : 'hint'}" style="margin:4px 0 0">Tied challenges have the same average: their middle answers sit on the same menu line.</p>` : ''}
+      <div class="sumbox ${big ? 'big' : ''}"><span>Together, the six add up to about</span><b>${fmt$(a.sum)}${a.sumHas13 ? '+' : ''} a year</b><small>A rough household total for this issue. The six challenges may overlap, so the sum can overstate the total.${a.sumHas13 ? ' At least one average is “more than anything on the menu,” which has no price, so it isn’t in the sum.' : ''}</small></div>`;
+  },
+  /* how the dollars add up: each challenge's middle answer, the menu line it sits on, that line's price, and the sum */
+  dollars(c, s, a, big=false){
+    if (!a.per.some(x => x.n || x.cant)) return '<p class="muted">No boards recorded yet.</p>';
+    const money = l => l === 13 ? 'more than anything' : fmt$(lineValue(s, c, l));
+    const rows = a.per.map(x => `<tr><td><b>${esc(x.code)}</b> ${esc(x.title)}<div class="sub">${x.n + x.cant} tokens${x.cant ? ` · ${x.cant} can't say` : ''}</div></td>
+      <td>${x.med == null ? '<span class="muted">—</span>' : `<span class="lineno">${x.med}</span> ${esc(lineLabel(s, c, x.med))}`}</td>
+      <td class="num">${x.q1 == null ? '—' : x.q1 === x.q3 ? money(x.q1) : `${money(x.q1)} – ${money(x.q3)}`}</td>
+      <td class="num"><b class="medcell">${x.med == null ? '—' : x.med === 13 ? 'no price' : fmt$(x.medValue)}</b></td></tr>`).join('');
+    const parts = a.per.filter(x => x.med != null && x.med !== 13).map(x => fmt$(x.medValue));
+    return `<div class="tablewrap"><table class="${big ? 'bigtable' : 'small'} dtable"><thead><tr><th>Challenge</th><th>The middle answer sits on</th><th class="num">Most answers between</th><th class="num">Per household, a year</th></tr></thead><tbody>${rows}
+      <tr class="medrow"><td colspan="3"><b>Together</b> ${big ? '' : `<span class="sub" style="display:inline">${parts.join(' + ')}</span>`}</td><td class="num"><b class="medcell">${fmt$(a.sum)}${a.sumHas13 ? '+' : ''}</b></td></tr></tbody></table></div>
+      <p class="${big ? 'bignote' : 'hint'}">${big ? 'The average is the middle token when a challenge’s tokens are put in order. The six may overlap, so the total is rough.' : 'Each token is one person\'s answer. Put all of a challenge\'s tokens in order, from the lowest line to the highest: the one in the middle is the average, and its value is that line\'s price on the shared menu. The six may overlap, so the total is a rough figure.'}${a.sumHas13 ? ' “More than anything on the menu” has no price, so it isn’t in the total.' : ''}</p>`;
+  },
+  tables(c, s, a, big=false){
+    const T = a.perTable.filter(x => x.tokens); if (!T.length) return '<p class="muted">No table results yet.</p>';
+    const money = (l, v) => l === 13 ? 'more than anything' : fmt$(v);
+    const cell = x => !x.n && !x.cant ? '<span class="muted">—</span>'
+      : `${x.n ? `<b>${money(x.med, x.medValue)}</b>` : ''}${x.n > 1 && x.lo !== x.hi ? `<div class="sub">${money(x.lo, lineValue(s, c, x.lo))} – ${money(x.hi, lineValue(s, c, x.hi))}</div>` : ''}${x.cant ? `<div class="sub">${x.cant} can't say</div>` : ''}`;
+    return `<div class="tablewrap"><table class="${big ? 'bigtable' : 'small'} ttable"><thead><tr><th>Table</th>${a.ch.map(x => `<th class="num">${esc(x.code)}<div class="sub">${esc(trunc(x.title, big ? 24 : 18))}</div></th>`).join('')}</tr></thead><tbody>
+      ${T.map(t => `<tr><td><b>Table ${esc(t.table.table_no)}</b>${t.people ? `<div class="sub">${t.people} people</div>` : ''}</td>${t.cards.map(x => `<td class="num">${cell(x)}</td>`).join('')}</tr>`).join('')}
+      <tr class="medrow"><td><b>Whole room</b></td>${a.per.map(x => `<td class="num"><b>${x.med == null ? '—' : money(x.med, x.medValue)}</b></td>`).join('')}</tr>
+      </tbody></table></div><p class="${big ? 'bignote' : 'hint'}">Each table's average for each challenge, with the range of its tokens underneath.</p>`;
+  },
+  evidence(a, big=false, quotesPer=3){
+    return `<div class="evgrid ${big ? 'big' : ''}">${a.per.map(x => `<div class="evcard"><div class="evh">${esc(x.code)} · ${esc(x.title)}</div>
+      <div class="evk"><span><b>${x.kinds.lived}</b> lived</span><span><b>${x.kinds.seen}</b> seen</span><span><b>${x.kinds.data}</b> data</span></div>
+      ${x.quotes.slice(0, quotesPer).map(q => `<p class="quote">“${esc(q.summary)}”</p>`).join('') || '<p class="muted small">No quotes cleared for reading aloud yet.</p>'}</div>`).join('')}</div>`;
+  }
+};
+
+/* ============================================================
+   ROUTER + SIGN-IN (the data lead and notetakers sign in; there is no public view)
+   ============================================================ */
+const app = $('#app');
+let started = false;
+/* Notetaker keys: one per lab, e.g. DEMO-PRAC-K7M2 = the lab code plus four characters.
+   The key signs in a notetaker account that can only see and record that lab. */
+const NOTE_DOMAIN = '@notetakers.rootchange.org';
+const isNoteUser = u => !!(u && u.email && u.email.toLowerCase().endsWith(NOTE_DOMAIN));
+const labOfNoteUser = u => u.email.toLowerCase().slice(5, -NOTE_DOMAIN.length).toUpperCase();
+function parseNoteKey(v){
+  const k = cleanCode(v).replace(/\s+/g, ''); if (k.startsWith('TRUST-')) return null; const m = k.match(/^([A-Z0-9]+-[A-Z0-9]+)-([A-Z0-9]{4})$/);   // every lab code has a dash, so a key has two
+  return m ? { key: k, lab: m[1] } : null;
+}
+async function signInWithNoteKey(v){
+  const p = parseNoteKey(v); if (!p) return { error: { message: 'bad-format' } };
+  const r = await sb.auth.signInWithPassword({ email: 'note-' + p.lab.toLowerCase() + NOTE_DOMAIN, password: p.key.toLowerCase() });
+  return { ...r, lab: p.lab };
+}
+async function boot(){
+  const { data } = await sb.auth.getSession();
+  const key = params.get('key');
+  if (key && !(data.session && !isNoteUser(data.session.user))) {   // a scanned QR: sign the notetaker straight in
+    const r = await signInWithNoteKey(key);
+    if (!r.error) { history.replaceState(null, '', location.pathname + '?note=' + encodeURIComponent(r.lab)); return route(r.data.session, r.lab); }
+    return renderLogin("note:That notetaker key didn't work. It may have been replaced: ask the data lead for the current key.", 'note');
+  }
+  if (data.session) return route(data.session);
+  renderLogin();
+}
+function route(session, noteLab){
+  if (started) return; started = true;
+  const code = params.get('board'); let note = noteLab || params.get('note') || params.get('join') || (params.get('key') && parseNoteKey(params.get('key'))?.lab);
+  if (isNoteUser(session.user)) { const mine = labOfNoteUser(session.user);   // notetaker accounts only ever open their own lab
+    if (!note || cleanCode(note) !== mine) { note = mine; history.replaceState(null, '', location.pathname + '?note=' + encodeURIComponent(mine)); }
+    return Notetaker.start(session, note); }
+  if (code) return Board.start(session, code);
+  if (note) return Notetaker.start(session, note);
+  return Console.start(session);
+}
+sb.auth.onAuthStateChange((ev, session) => { if (ev === 'SIGNED_IN' && session && !started) route(session); });
+/* Sign-in: two doors — the data lead (console, big screen) and notetakers (one table, on a phone) */
+function renderLogin(msg='', who=null){
+  stopPoll();
+  const noteCode = params.get('note') || params.get('join'), boardCode = params.get('board');
+  const hashWho = (location.hash.match(/^#(lead|note)$/) || [])[1];
+  who = who || (noteCode ? 'note' : boardCode ? 'lead' : hashWho || null);
+  const lab = noteCode ? cleanCode(noteCode) : '';
+  const errBox = id => msg && msg.startsWith(id + ':') ? `<div class="err" id="${id}err">${esc(msg.slice(id.length + 1))}</div>` : '';
+  const leadCard = `<div class="card door ${who === 'lead' ? 'only' : ''}"><div class="doorhead"><i class="dooric">▣</i><div><h2>Data lead</h2><p class="small muted" style="margin:0">Facilitator or data lead: set up the lab, run the clock, show the big screen and the results.</p></div></div>
+      ${errBox('lead')}
+      ${TESTER_EMAIL ? `<label for="tc">Tester code <span class="opt">signs you in</span></label><input id="tc" placeholder="trust-…" autocomplete="off" autocapitalize="none" spellcheck="false" data-1p-ignore data-lpignore="true">
+      <button class="btn primary" id="tgo" style="margin-top:14px;width:100%">Sign in as data lead</button>` : ''}
+      <details style="margin-top:14px" ${TESTER_EMAIL ? '' : 'open'}><summary class="small">Sign in with email and password instead</summary>
+        <label>Email</label><input id="em" type="email" autocomplete="email"><label>Password</label><input id="pw" type="password" autocomplete="current-password">
+        <div class="row" style="margin-top:12px"><button class="btn" id="si">Sign in</button><button class="btn ghost sm" id="ml">Email me a sign-in link</button></div></details></div>`;
+  const noteCard = `<div class="card door ${who === 'note' ? 'only' : ''}"><div class="doorhead"><i class="dooric">✎</i><div><h2>Notetaker</h2><p class="small muted" style="margin:0">Record one table on your phone: its prices, who's here, the tokens on its board and its evidence cards.</p></div></div>
+      ${errBox('note')}
+      <label for="nk">Notetaker key</label><input id="nk" placeholder="${lab ? esc(lab) + '-' : 'e.g. DEMO-PRAC-'}…" value="${lab ? esc(lab) + '-' : ''}" autocomplete="off" autocapitalize="characters" spellcheck="false" data-1p-ignore data-lpignore="true">
+      <p class="hint" style="margin:6px 0 0">One key per lab, from the data lead. Or scan the QR code on the data lead's screen: it signs you straight in.</p>
+      <button class="btn primary" id="ngo" style="margin-top:14px;width:100%">Open my lab</button></div>`;
+  app.innerHTML = `<div class="login ${who ? '' : 'two'}">
+    <div class="brand" style="font-size:26px;margin-bottom:4px">Trust <i>Valuation</i> Lab</div>
+    <p class="muted" style="margin-top:0">${who === 'note' ? 'Sign in to record your table.' : who === 'lead' ? 'Sign in to open the big screen.' : 'Which are you today?'}</p>
+    <div class="doors">${who === 'note' ? noteCard : who === 'lead' ? leadCard : leadCard + noteCard}</div>
+    ${who ? `<p class="small" style="text-align:center;margin-top:14px"><button class="btn ghost sm" id="other">${who === 'note' ? 'I’m the data lead' : 'I’m a notetaker'}</button></p>` : ''}
+    <p class="tiny muted" style="margin-top:10px;text-align:center">Testing? <button class="btn ghost sm" id="forget">Forget this browser</button> to start as if you were new.</p>
+  </div>`;
+  $('#forget').onclick = forgetBrowser;
+  $('#other') && ($('#other').onclick = () => { location.href = location.pathname + '#' + (who === 'note' ? 'lead' : 'note'); if (!noteCode && !boardCode) renderLogin('', who === 'note' ? 'lead' : 'note'); });
+  const looksLikeLab = c => !c.startsWith('trust-') && /^[a-z0-9]+-[a-z0-9]{3,6}$/i.test(c);
+  const say = (id, m) => { let e = $('#' + id + 'err'); if (!e) { e = document.createElement('div'); e.id = id + 'err'; e.className = 'err'; $(id === 'lead' ? '#tc' : '#nk').closest('.door').querySelector('.doorhead').after(e); } e.textContent = m; };
+  const signIn = async code => sb.auth.signInWithPassword({ email: TESTER_EMAIL, password: code });
+  const bad = "That tester code didn't work. It starts with “trust-”. If your browser filled the box in for you, clear it and type the code.";
+  if ($('#tgo')) {
+    const go = async () => { const code = $('#tc').value.trim().toLowerCase();
+      if (!code) return say('lead', 'Enter the tester code. It starts with “trust-”.');
+      if (!code.startsWith('trust-') && parseNoteKey(code)) return say('lead', `${code.toUpperCase()} looks like a notetaker key. Use it in the Notetaker card; the data lead signs in with the tester code.`);
+      if (looksLikeLab(code)) return say('lead', `${code.toUpperCase()} looks like a lab code. The data lead only needs the tester code; you'll pick the lab from the list.`);
+      $('#tgo').disabled = true; const { data, error } = await signIn(code); $('#tgo').disabled = false;
+      if (error) return say('lead', /invalid/i.test(error.message) ? bad : error.message);
+      route(data.session); };
+    $('#tgo').onclick = go; $('#tc').onkeydown = e => { if (e.key === 'Enter') go(); };
+  }
+  if ($('#ngo')) {
+    const go = async () => { const v = $('#nk').value.trim();
+      if (!v || /-$/.test(v)) return say('note', 'Enter the whole notetaker key, for example DEMO-PRAC-K7M2. The data lead has it.');
+      if (v.toLowerCase().startsWith('trust-')) return say('note', 'That’s the tester code, which is for the data lead. Notetakers use the lab’s notetaker key, for example DEMO-PRAC-K7M2.');
+      if (!parseNoteKey(v)) return say('note', `${cleanCode(v)} looks like a lab code. The notetaker key is the lab code plus four more characters, for example ${cleanCode(v)}-K7M2.`);
+      $('#ngo').disabled = true; const r = await signInWithNoteKey(v); $('#ngo').disabled = false;
+      if (r.error) return say('note', /invalid/i.test(r.error.message) ? "That notetaker key didn't work. Check it with the data lead: it may have been replaced." : r.error.message);
+      history.replaceState(null, '', location.pathname + '?note=' + encodeURIComponent(r.lab)); route(r.data.session, r.lab); };
+    $('#ngo').onclick = go; $('#nk').onkeydown = e => { if (e.key === 'Enter') go(); };
+  }
+  $('#si') && ($('#si').onclick = async () => { const { data, error } = await sb.auth.signInWithPassword({ email: $('#em').value.trim(), password: $('#pw').value }); if (error) return say('lead', error.message); route(data.session); });
+  $('#ml') && ($('#ml').onclick = async () => { const email = $('#em').value.trim(); if (!email) return say('lead', 'Enter your email first.');
+    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href.split('#')[0], shouldCreateUser: false } });
+    say('lead', error ? error.message : 'Check your email for a sign-in link.'); });
+}
+async function signOut(){ await sb.auth.signOut(); started = false; Console.user = null; renderLogin(); }
+/* TESTING ONLY — "Forget this browser": sign out and clear everything this app saved in the browser
+   (remembered screens and tabs, notetaker table, sign-in), then reload a fresh copy of the page.
+   Nothing in Supabase is touched. Remove before real labs if it's no longer needed. */
+async function forgetBrowser(){
+  try { await sb.auth.signOut({ scope: 'local' }); } catch(e) {}
+  try { Object.keys(localStorage).filter(k => k.startsWith('cvl_') || k.startsWith('sb-') || k.includes('supabase')).forEach(k => localStorage.removeItem(k)); } catch(e) {}
+  try { sessionStorage.clear(); } catch(e) {}
+  try { if (window.caches) for (const k of await caches.keys()) await caches.delete(k); } catch(e) {}
+  try { await fetch(location.pathname, { cache: 'reload' }); } catch(e) {}
+  location.replace(location.pathname);
+}
+async function checkFacilitator(user){
+  const { data: ok, error } = await sb.rpc('cvl_is_facilitator');
+  if (error || !ok) {
+    app.innerHTML = `<div class="login"><div class="card"><h3>Not on the staff list</h3><p>${esc(user.email)} is signed in but hasn't been added. Ask the data lead to add you under Settings.</p><button class="btn" id="so">Sign out</button></div></div>`;
+    $('#so').onclick = signOut; return false;
+  }
+  return true;
+}
+const isTester = u => !!(TESTER_EMAIL && u && u.email.toLowerCase() === TESTER_EMAIL);
+
+/* ============================================================
+   DATA LEAD CONSOLE
+   ============================================================ */
+const Console = {
+  user: null, communities: [], sessions: [],
+  async start(session){
+    this.user = session.user;
+    if (!(await checkFacilitator(this.user))) return;
+    await this.reload();
+    const last = store.get('cvl_last4');
+    if (last && last.tab === 'lab' && this.sessions.some(x => x.id === last.arg)) return this.go('lab', last.arg);
+    if (last && ['start','labs','settings'].includes(last.tab)) return this.go(last.tab);
+    this.go(last ? 'labs' : 'start');   // someone this browser doesn't remember starts at Start here
+  },
+  async reload(){
+    const [c, s] = await Promise.all([sb.from('cvl_communities').select('*').order('created_at'), sb.from('cvl_sessions').select('*').eq('mode', 'tvl').order('session_date', { ascending: false })]);
+    if (c.error) return toast(errMsg(c.error), true);
+    this.communities = c.data; this.sessions = s.data || [];
+  },
+  comm(id){ return this.communities.find(c => c.id === id); },
+  go(tab, arg){
+    if (tab === 'settings' && isTester(this.user)) tab = 'start';
+    stopPoll(); store.set('cvl_last4', { tab: tab === 'editor' ? 'places' : tab, arg: tab === 'lab' ? arg : undefined });
+    if (tab === 'places' || tab === 'editor') tab = 'labs';
+    const tabs = [['start','Start here'],['labs','Labs'], ...(isTester(this.user) ? [] : [['settings','Settings']])];
+    const active = tab === 'lab' ? 'labs' : tab;
+    app.innerHTML = `<div class="top"><div class="wrap"><div class="brand">Trust <i>Valuation</i> Lab</div>
+        <nav class="tabs">${tabs.map(([k,l]) => `<button data-t="${k}" class="${k===active?'on':''}">${l}</button>`).join('')}</nav>
+        <div class="who"><span>${isTester(this.user) ? 'Tester' : esc(this.user.email)}</span><button id="forget" title="Testing: sign out and clear what this browser remembers, as if you were new">Forget this browser</button><button id="so">Sign out</button></div></div></div>
+      <main><div class="wrap" id="view"></div></main>`;
+    $$('.tabs button').forEach(b => b.onclick = () => this.go(b.dataset.t));
+    $('#so').onclick = signOut;
+    $('#forget').onclick = e => { if (confirmInline(e.currentTarget, 'Click again to forget')) forgetBrowser(); };
+    const v = $('#view');
+    ({ start: () => this.viewStart(v), places: () => this.viewPlaces(v), editor: () => this.viewEditor(v, arg), labs: () => this.viewLabs(v), lab: () => this.viewLab(v, arg), settings: () => this.viewSettings(v) })[tab]();
+    window.scrollTo(0, 0);
+  },
+  intro(title, text, next){ return `<div class="section-head"><div class="grow"><h1>${title}</h1><p class="lead">${text}</p></div>${next || ''}</div>`; },
+
+  viewStart(v){
+    const nS = this.sessions.length;
+    const step = (n, title, text, done, buttons) => `<div class="card step ${done ? 'done' : ''}"><div class="num">${done ? '✓' : n}</div><div class="grow"><h3>${title}</h3><p>${text}</p></div><div class="actions">${buttons}</div></div>`;
+    v.innerHTML = this.intro('Start here', 'This app supports the Trust Valuation Lab Session Manual: a three-hour session where 30–50 residents put a household dollar value on six aspects of one priority distrust issue, and back each value with evidence.') + `
+      <div class="steps-list">
+        ${step(1, 'Create the lab', 'Name the place (zip codes or area) and choose the priority issue. The lab gets the standard 13-line price menu and the issue’s six distrust challenges, which you can reword from the Trust Cube stories.', nS > 0, '<button class="btn" data-go="labs">Open labs</button>')}
+        ${step(2, 'Before the session', 'In the lab’s <b>Before</b> tab: the tables, the preparation checklist, the six challenge cards and the price menu items.', false, '<button class="btn" data-go="labs">Open labs</button>')}
+        ${step(3, 'Run the session', 'The data lead runs the <b>Run</b> tab: the run-of-show clock, table prices coming in, setting the shared menu, and each table’s board coming in. Notetakers record their table on their own signed-in devices.', false, '<button class="btn primary" data-go="labs">Run a lab ›</button>')}
+        ${step(4, 'Discussion and results', 'Show the results on the big screen, record takeaways, and print the Lab results summary.', false, '<button class="btn" data-go="labs">Open labs</button>')}
+      </div>
+      <div class="grid g2" style="margin-top:20px">
+        <div class="card"><h3>Who uses which screen</h3><ul class="small flowlist">
+          <li><b>Data lead:</b> this console. The <b>Run</b> tab during the session; <b>Discussion</b> and <b>Results</b> at the end.</li>
+          <li><b>Notetakers</b> (1 per table): the <b>notetaker view</b> on a phone or tablet. They scan the QR code on the Run tab, or type the lab's <b>notetaker key</b>. They record their table's prices, who's here, the tokens on the table's board (Task 3) and the evidence cards (Task 4).</li>
+          <li><b>Big screen:</b> opened by the data lead on the projector laptop: table prices, the shared menu, and the results for the discussion: cost per challenge, how the dollars add up, and the evidence.</li></ul></div>
+        <div class="card"><h3>Practice first</h3><p class="small">The demo lab <b>Riverbend health lab (demo)</b> is filled in, so you can look at every screen. The <b>Practice lab</b> is empty: open its notetaker view on your phone and try recording a table.</p>
+          <button class="btn" data-go="labs">See the labs</button></div>
+      </div>`;
+    $$('[data-go]').forEach(b => b.onclick = () => this.go(b.dataset.go));
+  },
+
+  viewPlaces(v){
+    v.innerHTML = this.intro('Step 1 · Places', 'A place holds the price menu used in its labs: line 1 is “This costs my household nothing” ($0), lines 2–12 are priced by the room in Part 1, and line 13 is “More than anything on the menu.”',
+      '<button class="btn primary" id="new">+ New place</button>') + `<div class="grid g3">${this.communities.map(c => `<div class="card">${c.is_demo ? '<span class="chip demo">Demo</span>' : ''}<h3 style="margin-top:6px">${esc(c.name)}</h3><p class="small muted">${esc(c.place || '')}</p>
+        <p class="tiny muted">${this.sessions.filter(s => s.community_id === c.id).length} lab(s)</p><button class="btn sm" data-edit="${c.id}">Edit menu</button></div>`).join('') || '<div class="card empty"><p>No places yet.</p></div>'}</div>`;
+    $('#new').onclick = () => this.go('editor', null);
+    $$('[data-edit]').forEach(b => b.onclick = () => this.go('editor', b.dataset.edit));
+  },
+  async viewEditor(v, id){
+    const c = id ? JSON.parse(JSON.stringify(this.comm(id))) : { name:'', place:'', ladder: STANDARD_MENU.map((label, i) => ({ label, price: [10,20,40,80,160,320,640,1300,2500,5000,10000][i], menu:'AB' })) };
+    let locked = false;
+    if (id) { const ids = this.sessions.filter(s => s.community_id === id).map(s => s.id); if (ids.length) { const { count } = await sb.from('cvl_tables').select('id', { count:'exact', head:true }).in('session_id', ids); locked = count > 0; } }
+    v.innerHTML = this.intro(id ? 'Edit ' + esc(c.name) : 'New place', 'Name the place and check the menu. Keep the standard 13 lines unless an item makes no sense locally. Prices are set by the room, not here.',
+      '<div class="row"><button class="btn" id="back">Cancel</button><button class="btn primary" id="save">Save</button></div>') + `
+      <div class="grid g2"><div class="card"><label>Name</label><input id="nm" value="${esc(c.name)}"><label>Zip code(s) or area</label><input id="pl" value="${esc(c.place || '')}" placeholder="e.g. 95301 and 95303"></div>
+      <div class="card"><h3>The menu</h3>${locked ? '<div class="warn">Labs here already have tables, so items can only be renamed.</div>' : ''}
+        <div class="scalelist"><div class="scalerow"><span><span class="lineno">13</span> More than anything on the menu</span><b>no price</b></div>
+        ${c.ladder.map((x, i) => i).reverse().map(i => `<div class="scalerow"><span class="grow"><span class="lineno">${i + 2}</span> <input data-l="${i}" value="${esc(c.ladder[i].label)}" style="display:inline-block;width:80%"></span><b class="muted small">set in Part 1</b></div>`).join('')}
+        <div class="scalerow"><span><span class="lineno">1</span> This costs my household nothing</span><b>$0</b></div></div></div></div>`;
+    $('#back').onclick = () => this.go('places');
+    $('#save').onclick = async () => {
+      const name = $('#nm').value.trim(); if (!name) return toast('Give the place a name', true);
+      $$('[data-l]').forEach(el => c.ladder[+el.dataset.l].label = el.value.trim() || c.ladder[+el.dataset.l].label);
+      const row = { name, place: $('#pl').value.trim(), ladder: c.ladder };
+      if (!id) Object.assign(row, { problems: [], zips: [], trust_domain: '', challenge: '', median_wage: 25, households: 0 });
+      const { error } = id ? await sb.from('cvl_communities').update(row).eq('id', id) : await sb.from('cvl_communities').insert(row);
+      if (error) return toast(errMsg(error), true); await this.reload(); toast('Saved'); this.go('places');
+    };
+  },
+
+  viewLabs(v){
+    v.innerHTML = this.intro('Labs', 'Each lab is one three-hour session in one place, on one priority issue.') + `
+      <div class="card" style="margin-bottom:16px"><h3>Create a lab</h3><div class="row" style="align-items:flex-end">
+        <div class="grow"><label>Place</label><select id="nc">${this.communities.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}<option value="__new" ${this.communities.length ? '' : 'selected'}>+ New place…</option></select></div>
+        <div class="grow newplace ${this.communities.length ? 'hide' : ''}"><label>New place name</label><input id="npn" placeholder="e.g. Riverbend Eastside"></div>
+        <div class="grow newplace ${this.communities.length ? 'hide' : ''}"><label>Zip code(s)</label><input id="npz" placeholder="e.g. 95301, 95303"></div>
+        <div class="grow"><label>Priority issue</label><select id="ni">${Object.entries(ISSUES).map(([k, x]) => `<option value="${k}">${esc(x.name)}${x.draft ? ' (draft cards)' : ''}</option>`).join('')}</select></div>
+        <div class="grow"><label>Name</label><input id="nl" placeholder="e.g. Lab 1 — community center"></div>
+        <div><label>Date</label><input id="nd" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+        <button class="btn primary" id="ns">Create ›</button></div></div>
+      <div class="card"><div class="tablewrap"><table><thead><tr><th>Date</th><th>Lab</th><th>Issue</th><th>Place</th><th>Code</th><th></th></tr></thead><tbody>
+      ${this.sessions.map(s => { const c = this.comm(s.community_id); return `<tr><td class="small">${esc(s.session_date)}</td><td><b>${esc(s.label)}</b> ${s.stage === 'closed' ? '<span class="chip">Closed</span>' : ''}</td><td class="small">${esc(issueOf(s).short)}</td><td class="small">${esc(c?.name)} ${c?.is_demo ? '<span class="chip demo">demo</span>' : ''}</td><td><code>${esc(s.join_code)}</code></td><td><button class="btn sm primary" data-open="${s.id}">Open ›</button></td></tr>`; }).join('') || '<tr><td colspan="6" class="muted">No labs yet.</td></tr>'}
+      </tbody></table></div></div>`;
+    $('#nc').onchange = () => $$('.newplace').forEach(x => x.classList.toggle('hide', $('#nc').value !== '__new'));
+    $('#ns').onclick = async () => {
+      let cid = $('#nc').value, c = this.comm(cid);
+      if (cid === '__new') {
+        const name = $('#npn').value.trim(); if (!name) return toast('Name the new place', true);
+        const { data: nc, error: ce } = await sb.from('cvl_communities').insert({ name, place: $('#npz').value.trim(), ladder: STANDARD_MENU.map(label => ({ label, price: 0, menu: 'AB' })), problems: [], zips: [], trust_domain: '', challenge: '', median_wage: 25, households: 0 }).select().single();
+        if (ce) return toast(errMsg(ce), true);
+        await this.reload(); cid = nc.id; c = this.comm(cid);
+      }
+      const issue = $('#ni').value;
+      const row = { community_id: cid, mode: 'tvl', module: issue, problems: JSON.parse(JSON.stringify(ISSUES[issue].challenges)), label: $('#nl').value.trim() || ISSUES[issue].short + ' lab',
+        session_date: $('#nd').value, menu: 'A', join_code: makeCode(c.name), agenda: RUN_OF_SHOW, run: {}, prep: {} };
+      const { data, error } = await sb.from('cvl_sessions').insert(row).select().single();
+      if (error) return toast(errMsg(error), true);
+      await sb.rpc('cvl_issue_note_key', { p_session: data.id });   // one notetaker key per lab
+      await this.reload(); this.go('lab', data.id);
+    };
+    $$('[data-open]').forEach(b => b.onclick = () => this.go('lab', b.dataset.open));
+  },
+
+  /* ---------- One lab ---------- */
+  async viewLab(v, sid){
+    let s = this.sessions.find(x => x.id === sid); if (!s) { await this.reload(); s = this.sessions.find(x => x.id === sid); }
+    if (!s) { v.innerHTML = '<div class="err">That lab no longer exists.</div>'; return; }
+    const c = this.comm(s.community_id);
+    let sub = store.get('cvl_labtab4') || 'run'; if (sub === 'slips') sub = 'run';
+    const subs = [['before','Before'],['run','Run'],['discussion','Discussion'],['results','Results summary']];
+    v.innerHTML = `<div class="section-head"><div class="grow"><button class="btn ghost sm" id="back">‹ All labs</button><h1>${esc(s.label)}</h1>
+        <p class="lead">${esc(c.name)} · ${esc(issueOf(s).name)} · ${esc(s.session_date)} · code <b>${esc(s.join_code)}</b> ${c.is_demo ? '<span class="chip demo">demo</span>' : ''} ${s.stage === 'closed' ? '<span class="chip">Closed</span>' : ''}</p></div>
+        <div class="row"><a class="btn" href="${appUrl('board', s.join_code)}" target="_blank">Big screen ↗</a><a class="btn" href="${appUrl('note', s.join_code)}" target="_blank">Notetaker view ↗</a></div></div>
+      <div class="subtabs">${subs.map(([k, l]) => `<button data-sub="${k}" class="${k === sub ? 'on' : ''}">${l}</button>`).join('')}</div><div id="sub"></div>`;
+    $('#back').onclick = () => this.go('labs');
+    $$('[data-sub]').forEach(b => b.onclick = () => { store.set('cvl_labtab4', b.dataset.sub); this.go('lab', s.id); });
+    const el = $('#sub');
+    ({ before: () => this.labBefore(el, s, c), run: () => this.labRun(el, s, c), discussion: () => this.labDiscussion(el, s, c), results: () => this.labResults(el, s, c) })[sub]();
+  },
+  async saveSession(s, patch){ const { error } = await sb.from('cvl_sessions').update(patch).eq('id', s.id); if (error) { toast(errMsg(error), true); return false; } Object.assign(s, patch); return true; },
+
+  /* Before the session */
+  async labBefore(el, s, c){
+    const d = await loadLab(s.id);
+    const prep = s.prep || {};
+    const ch = JSON.parse(JSON.stringify(challengesOf(s)));
+    el.innerHTML = `<div class="card" id="tables" style="margin-bottom:16px"></div>
+    <div class="grid g2">
+      <div class="card"><h3>Before the session</h3><p class="hint" style="margin-top:0">Preparation starts 4–6 weeks ahead and runs in this order.</p>
+        <div class="checklist">${PREP.map(([k, t], i) => `<label class="chk"><input type="checkbox" data-prep="${k}" ${prep[k] ? 'checked' : ''}> <span><b>${i + 1}.</b> ${esc(t)}</span></label>`).join('')}</div></div>
+      <div class="card"><h3>Ground rules to read at the start</h3><ol class="small">${GROUND_RULES.map(r => `<li>${esc(r)}</li>`).join('')}</ol></div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3>The place</h3><p class="hint" style="margin-top:0">Households in ${esc(c.place || c.name)}, from the census. Used only for the last step of the reveal on the big screen (“if every household carries a cost like this”). Leave it blank to skip that step. This belongs to the place, so it applies to its other labs too.</p>
+      <div class="row"><label style="margin:0;text-transform:none;letter-spacing:0;font-size:14px">Households</label><input id="hh" type="number" min="0" inputmode="numeric" value="${+c.households || ''}" placeholder="e.g. 8200" style="width:140px"><button class="btn" id="svh">Save</button></div></div>
+    <div class="card" style="margin-top:16px"><h3>The price menu</h3>
+      <p class="hint" style="margin-top:0">The standard 13 lines. Change an item only if it makes no sense locally. Prices are set by the room in Part 1. These items belong to the place (${esc(c.name)}), so changes apply to its other labs too.</p>
+      <div class="scalelist"><div class="scalerow"><span><span class="lineno">13</span> More than anything on the menu</span><b class="muted small">no price</b></div>
+        ${c.ladder.map((x, i) => i).reverse().map(i => `<div class="scalerow"><span class="grow"><span class="lineno">${i + 2}</span> <input data-l="${i}" value="${esc(c.ladder[i].label)}" style="display:inline-block;width:80%"></span><b class="muted small">set in Part 1</b></div>`).join('')}
+        <div class="scalerow"><span><span class="lineno">1</span> This costs my household nothing</span><b>$0</b></div></div>
+      <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn" id="svm">Save menu items</button></div></div>
+    <div class="card" style="margin-top:16px"><h3>The six distrust challenges</h3>
+      <p class="hint" style="margin-top:0">Each card describes one aspect of the issue in plain language, drawn from the Trust Cube stories, and names what distrust leads households to do and the kinds of cost involved. The question printed on every card: <i>${esc(QUESTION)}</i></p>
+      ${ch.map((p, i) => `<div class="chrow"><div class="row"><b class="chnum">${i + 1}</b><input data-c="${i}" data-k="title" value="${esc(p.title)}" class="grow"></div><textarea data-c="${i}" data-k="card">${esc(p.card || '')}</textarea></div>`).join('')}
+      <div class="row" style="justify-content:flex-end"><button class="btn primary" id="svc">Save challenges</button></div></div>`;
+    $$('[data-prep]').forEach(cb => cb.onchange = () => { prep[cb.dataset.prep] = cb.checked; this.saveSession(s, { prep }); });
+    $$('[data-c]').forEach(t => t.oninput = () => { ch[+t.dataset.c][t.dataset.k] = t.value; });
+    $('#svc').onclick = async () => { if (await this.saveSession(s, { problems: ch })) toast('Challenges saved'); };
+    $('#svh').onclick = async () => { const households = Math.max(0, Math.round(+$('#hh').value || 0)); const { error } = await sb.from('cvl_communities').update({ households }).eq('id', c.id); if (error) return toast(errMsg(error), true); c.households = households; toast(households ? 'Households saved' : 'Households cleared: the reveal stops at step 2'); };
+    $('#svm').onclick = async () => { const ladder = c.ladder.map((x, i) => ({ ...x, label: ($(`[data-l="${i}"]`).value || '').trim() || x.label }));
+      const { error } = await sb.from('cvl_communities').update({ ladder }).eq('id', c.id); if (error) return toast(errMsg(error), true); c.ladder = ladder; toast('Menu items saved'); };
+    this.drawTables(s, d);
+  },
+  drawTables(s, d){
+    const box = $('#tables'); if (!box) return;
+    box.innerHTML = `<div class="row"><h3 class="grow" style="margin:0">Tables</h3><span class="small muted">${d.tables.length} table${d.tables.length === 1 ? '' : 's'}</span></div>
+      <p class="hint">Tables of no more than 6 people, typically 6–9 tables, with one notetaker per table. Each table has one placement board. Notetakers can also add a table from their view on the day.</p>
+      <div class="row">${d.tables.map(t => `<span class="chip tchip">Table ${esc(t.table_no)}${tableUsed(t, d) ? '' : ` <button class="x" data-rmt="${t.id}" aria-label="Remove table ${esc(t.table_no)}">✕</button>`}</span>`).join('') || '<span class="muted small">No tables yet.</span>'}</div>
+      <div class="row" style="margin-top:12px">${d.tables.length ? '<button class="btn" id="addone">+ Add a table</button><span class="small">or</span>' : ''}
+        <span class="small">set up tables 1 to</span><input id="qt" type="number" min="1" max="15" value="${Math.max(7, d.tables.length)}" style="width:70px" aria-label="Number of tables"><button class="btn ${d.tables.length ? '' : 'primary'}" id="quick">Set up</button></div>`;
+    const reload = async () => { const nd = await loadLab(s.id); Object.assign(d, nd); this.drawTables(s, d); };
+    $$('[data-rmt]').forEach(b => b.onclick = async () => { if (!confirmInline(b, 'Remove?')) return; const { error } = await sb.from('cvl_tables').delete().eq('id', b.dataset.rmt); if (error) toast(errMsg(error), true); await reload(); });
+    $('#addone') && ($('#addone').onclick = async () => { const next = String(Math.max(0, ...d.tables.map(t => +t.table_no || 0)) + 1);
+      const { error } = await sb.from('cvl_tables').insert({ session_id: s.id, table_no: next }); if (error) return toast(errMsg(error), true); await reload(); });
+    $('#quick').onclick = async () => {
+      const nt = Math.min(15, Math.max(1, +$('#qt').value || 0)), have = new Set(d.tables.map(t => String(t.table_no))), rows = [];
+      for (let i = 1; i <= nt; i++) if (!have.has(String(i))) rows.push({ session_id: s.id, table_no: String(i) });
+      if (rows.length) { const { error } = await sb.from('cvl_tables').insert(rows); if (error) return toast(errMsg(error), true); }
+      toast(rows.length ? `${rows.length} table${rows.length === 1 ? '' : 's'} added` : 'Those tables are already set up'); await reload();
+    };
+  },
+
+  /* Run the session */
+  async labRun(el, s, c){
+    let agenda = JSON.parse(JSON.stringify(RUN_OF_SHOW));
+    let run = s.run || {};
+    el.innerHTML = `<div class="howto"><b>Data lead:</b> start the clock when the session opens and follow <b>Now</b> and <b>Up next</b>. In Part 1, watch table prices come in, then <b>set the shared menu</b>. In Tasks 3 and 4, watch each table’s board and evidence come in. Put the big screen on the projector from the button at the top.</div>
+      <div class="runlayout"><div class="runmain">
+        <div class="card nowcard" id="now"></div>
+        <div class="card" id="prices"></div>
+        <div class="card" id="checks"></div>
+      </div><div class="runside">
+        <div class="card" style="text-align:center" id="nkcard"></div>
+        <div class="card"><h3>Big screen</h3><p class="hint" style="margin-top:0">Open on the projector laptop (signed in). It shows table prices, the shared menu, the reveal and the results for the discussion. Use “‹ Back to the lab” to return here.</p>
+          <p class="hint"><b>Projector tip:</b> set the display to <b>extend</b>, not mirror, so the room never sees this console. Drag the big-screen window onto the projector and make it full screen (F11 on Windows; Ctrl+Cmd+F on a Mac).</p><a class="btn" href="${appUrl('board', s.join_code)}" target="_blank">Open the big screen ↗</a></div>
+        <div class="card"><h3>Lab ${s.stage === 'closed' ? 'closed' : 'open'}</h3><p class="hint" style="margin-top:0">${s.stage === 'closed' ? 'Closed labs are read-only for notetakers.' : 'Close the lab once the results summary is done.'}</p><button class="btn ${s.stage === 'closed' ? '' : 'danger'}" id="oc">${s.stage === 'closed' ? 'Reopen' : 'Close lab'}</button></div>
+      </div></div>`;
+    this.drawNoteKey(s);
+    $('#oc').onclick = async e => { if (s.stage !== 'closed' && !confirmInline(e.currentTarget, 'Click again to close')) return; await this.saveSession(s, { stage: s.stage === 'closed' ? 'lobby' : 'closed' }); this.go('lab', s.id); };
+
+    // clock
+    const saveRun = async r => { run = r; drawNow(); await this.saveSession(s, { run: r }); };
+    const mmss = sec => { sec = Math.max(0, Math.round(sec)); return Math.floor(sec/60) + ':' + String(sec%60).padStart(2,'0'); };
+    const plannedTotal = () => agenda.reduce((t,a) => t + (+a.min||0)*60, 0);
+    const drawNow = () => {
+      const n = $('#now'); if (!n) return;
+      if (!run.started_at) {
+        n.innerHTML = `<div class="k">Run of show · not started</div><h2>Ready when you are</h2><p class="small">${agenda.length} parts, ${Math.round(plannedTotal()/60)} minutes. First: <b>${esc(agenda[0].name)}</b> (${esc(agenda[0].lead)}).</p>
+          <button class="btn primary bigbtn" id="startc">▶ Start the clock</button>
+          <details style="margin-top:12px"><summary class="small">See the full run of show</summary>${this.agendaTable(agenda)}</details>`;
+        $('#startc').onclick = () => { const now = new Date().toISOString(); saveRun({ started_at: now, seg: 0, seg_started_at: now, log: [] }); };
+        return;
+      }
+      if (run.finished_at) {
+        const tot = (new Date(run.finished_at) - new Date(run.started_at))/1000, dd = tot - plannedTotal();
+        n.innerHTML = `<div class="k">Finished</div><h2>Session complete ✓</h2><p>Total ${mmss(tot)} against ${Math.round(plannedTotal()/60)} minutes planned (${dd > 0 ? `<span class="overtxt">${mmss(dd)} over</span>` : `${mmss(-dd)} under`}).</p><button class="btn" id="resetc">Reset the clock</button>`;
+        $('#resetc').onclick = e => { if (confirmInline(e.currentTarget, 'Click again to reset')) saveRun({}); }; return;
+      }
+      const i = Math.min(run.seg, agenda.length - 1), a = agenda[i], nx = agenda[i+1];
+      n.innerHTML = `<div class="row"><div class="k grow">Now · part ${i+1} of ${agenda.length} · led by ${esc(a.lead || '')}</div><button class="btn ghost sm" id="resetc">Reset</button></div>
+        <h2>${esc(a.name)}</h2><div class="clock" id="clk"><span id="clkt">0:00</span><small> of ${a.min}:00</small></div><div class="tbar"><i id="tbar"></i></div><div class="overline" id="over"></div>
+        <p class="say"><b>Say or do:</b> ${esc(a.prompt || '')}</p>${a.data && a.data !== 'None' ? `<p class="small" style="margin:8px 0 0"><b>Data captured:</b> ${esc(a.data)}</p>` : ''}
+        <div class="row" style="margin-top:12px">${i > 0 ? '<button class="btn" id="prevs">‹ Back</button>' : ''}<span class="grow"></span><button class="btn primary bigbtn" id="nexts">${nx ? `Next: ${esc(trunc(nx.name, 34))} ›` : 'Finish ✓'}</button></div>
+        ${nx ? `<div class="upnext"><div class="k">Up next · ${nx.min} min · ${esc(nx.lead || '')}</div><b>${esc(nx.name)}</b><p class="small" style="margin:4px 0 0">${esc(nx.prompt || '')}</p></div>` : ''}
+        <p class="small muted" id="totline" style="margin:12px 0 0"></p>
+        ${i <= 5 && i >= 4 ? '<p class="hint" style="margin-top:6px">If time runs short, shorten Task 2, not Task 1 or Task 4.</p>' : ''}`;
+      $('#nexts').onclick = () => { const now = new Date().toISOString(); const log = [...(run.log||[]).filter(x => x.seg !== i), { seg: i, start: run.seg_started_at, end: now }];
+        saveRun(i + 1 >= agenda.length ? { ...run, log, finished_at: now } : { ...run, log, seg: i + 1, seg_started_at: now }); };
+      $('#prevs') && ($('#prevs').onclick = () => { const prev = (run.log||[]).find(x => x.seg === i-1); saveRun({ ...run, seg: i-1, seg_started_at: prev ? prev.start : new Date().toISOString(), log: (run.log||[]).filter(x => x.seg < i-1) }); });
+      $('#resetc').onclick = e => { if (confirmInline(e.currentTarget, 'Reset? Click again')) saveRun({}); };
+      tick();
+    };
+    const tick = () => {
+      if (!run.started_at || run.finished_at || !$('#clkt')) return;
+      const i = Math.min(run.seg, agenda.length - 1), a = agenda[i];
+      const segSec = (Date.now() - new Date(run.seg_started_at))/1000, plan = (+a.min||0)*60, ratio = plan ? segSec/plan : 1;
+      const state = ratio >= 1 ? 'over' : ratio >= 0.8 ? 'warn' : 'ok';
+      $('#clkt').textContent = mmss(segSec); $('#clk').className = 'clock ' + state; $('#tbar').style.width = Math.min(100, ratio*100) + '%'; $('#tbar').className = state;
+      $('#over').innerHTML = state === 'over' ? `<span class="overtxt">+${mmss(segSec - plan)} over</span>` : state === 'warn' ? `${mmss(plan - segSec)} left` : '';
+      const total = (Date.now() - new Date(run.started_at))/1000, remaining = Math.max(0, plan - segSec) + agenda.slice(i+1).reduce((t,x) => t + (+x.min||0)*60, 0), proj = total + remaining - plannedTotal();
+      $('#totline').innerHTML = `Session time ${mmss(total)} of ${Math.round(plannedTotal()/60)}:00 · ${Math.abs(proj) < 60 ? 'on track' : proj > 0 ? `<span class="overtxt">on track to finish ${Math.round(proj/60)} min late</span>` : `${Math.round(-proj/60)} min ahead`}`;
+    };
+    drawNow(); tickTimer = setInterval(tick, 1000);
+
+    // prices + checks (live)
+    let sig = '';
+    const refresh = async () => {
+      let d; try { d = await loadLab(s.id); } catch(e) { return; }
+      const a = analyzeLab(c, s, d);
+      const nsig = JSON.stringify([d.tables.map(t => t.prices), s.shared_menu]);
+      if (nsig !== sig) { sig = nsig; this.drawPrices(s, c, a); }
+      this.drawChecks(s, c, d, a);
+    };
+    await refresh(); pollTimer = setInterval(refresh, 6000);
+  },
+  drawNoteKey(s){
+    const box = $('#nkcard'); if (!box) return;
+    const make = async (btn) => { btn.disabled = true; const { data, error } = await sb.rpc('cvl_issue_note_key', { p_session: s.id }); btn.disabled = false;
+      if (error) return toast(errMsg(error), true); s.note_key = data; this.drawNoteKey(s); toast('New notetaker key ready'); };
+    if (!s.note_key) {
+      box.innerHTML = `<h3>Notetaker key</h3><p class="hint" style="margin-top:0">One key for all of this lab's notetakers. It opens only this lab's notetaker view, never this console.</p><button class="btn primary" id="mkkey">Make the notetaker key</button>`;
+      $('#mkkey').onclick = e => make(e.currentTarget); return;
+    }
+    const link = appUrl('key', s.note_key);
+    box.innerHTML = `<h3>Notetakers: scan to sign in</h3><p class="hint" style="margin-top:0">The QR code signs a notetaker straight into this lab. Or they type the key in the Notetaker card on the sign-in screen.</p>
+      <div class="qr" id="qr" style="margin:6px auto"></div><div class="bigcode">${esc(s.note_key)}</div>
+      <div class="row" style="justify-content:center;margin-top:10px"><button class="btn sm" id="cpcode">Copy key</button><button class="btn sm" id="cplink">Copy link</button><button class="btn sm" id="cpqr">Copy QR image</button></div>
+      <p class="hint" style="margin-top:12px">The key works only for this lab. If it gets shared too widely, <button class="btn ghost sm" id="rekey">make a new key</button>; the old one stops working.</p>`;
+    try { new QRCode($('#qr'), { text: link, width: 180, height: 180 }); } catch(e) {}
+    $('#cpcode').onclick = () => copyText(s.note_key, 'Key copied');
+    $('#cplink').onclick = () => copyText(link, 'Link copied');
+    $('#cpqr').onclick = () => copyQR($('#qr'), s.note_key);
+    $('#rekey').onclick = e => { if (confirmInline(e.currentTarget, 'Click again: the old key stops working')) make(e.currentTarget); };
+  },
+  agendaTable(ag){ return `<div class="tablewrap"><table class="small"><thead><tr><th>Min</th><th>Segment</th><th>Who leads</th><th>Data captured</th></tr></thead><tbody>${ag.map(a => `<tr><td class="num">${a.min}</td><td>${esc(a.name)}</td><td>${esc(a.lead || '')}</td><td>${esc(a.data || '')}</td></tr>`).join('')}</tbody></table></div>`; },
+  drawPrices(s, c, a){
+    const box = $('#prices'); if (!box) return;
+    const adopted = Array.isArray(s.shared_menu), entered = a.prices[0]?.n || 0;
+    if (!adopted) {
+      box.innerHTML = `<div class="row"><h3 class="grow" style="margin:0">Part 1 · Table prices</h3><span class="chip amber">${entered} table${entered === 1 ? '' : 's'} entered</span></div>
+        <p class="hint">Each table's price for every item, as the table entered it. The <b>average</b> is the middle table price, rounded to an easy number, so one unusually high or low table doesn't move it.</p>
+        ${Display.prices(c, s, a)}<div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn primary" id="adopt" ${entered ? '' : 'disabled'}>Use these averages as the shared menu</button></div>`;
+      $('#adopt') && ($('#adopt').onclick = async () => {
+        if (a.prices.some(p => !p.n)) return toast('Every item needs at least one table price', true);
+        // the price used is the median; the mean and median are kept with it for the record
+        const menu = a.prices.map(p => ({ item: p.item, label: p.label, price: p.median, median: p.median, mean: Math.round(p.mean * 100) / 100, tables: p.n }));
+        if (await this.saveSession(s, { shared_menu: menu })) { toast('Shared menu set — it is on the big screen'); this.drawPrices(s, c, a); }
+      });
+      return;
+    }
+    box.innerHTML = `<div class="row"><h3 class="grow" style="margin:0">The shared price menu</h3><span class="chip teal">Set · on the big screen</span></div>
+      <p class="hint">Every table writes these prices on its menu. Table hosts check each menu matches the screen.</p>
+      ${Display.menu(c, s)}
+      <details style="margin-top:10px"><summary class="small">See each table's prices</summary>${Display.prices(c, s, a)}</details>
+      <div class="row" style="margin-top:10px"><button class="btn sm ghost" id="redo">Undo — go back to table prices</button></div>`;
+    $('#redo').onclick = async e => { if (!confirmInline(e.currentTarget, 'Click again to undo')) return; if (await this.saveSession(s, { shared_menu: null })) this.drawPrices(s, c, a); };
+  },
+  drawChecks(s, c, d, a){
+    const box = $('#checks'); if (!box) return;
+    const T = a.perTable, nCh = a.ch.length, done = T.filter(x => x.done === nCh).length;
+    box.innerHTML = `<div class="row"><h3 class="grow" style="margin:0">Tables coming in</h3><span class="small muted">${done} of ${T.length} board${T.length === 1 ? '' : 's'} recorded · ${a.nPeople} people</span></div>
+      <div class="tablewrap" style="margin-top:8px"><table class="small"><thead><tr><th>Table</th><th class="num">Prices</th><th class="num">People</th><th class="num">Board (Task 3)</th><th class="num">Evidence (Task 4)</th></tr></thead><tbody>
+      ${T.map(x => `<tr><td><b>${esc(x.table.table_no)}</b></td><td class="num">${x.prices}/${c.ladder.length}</td><td class="num">${x.people || '<span class="muted">—</span>'}</td>
+        <td class="num ${x.done === nCh ? '' : x.tokens ? 'warntxt' : ''}">${x.done === nCh ? `all ${nCh} ✓` : `${x.done} of ${nCh} challenges`}${x.short.length ? `<div class="tiny">token count ≠ people on ${x.short.join(', ')}</div>` : ''}</td><td class="num">${x.evN}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No tables yet. Add them under Before, or notetakers add them from their view.</td></tr>'}</tbody></table></div>
+      ${d.tables.length && d.tables.length < 5 ? '<div class="warn">Fewer than 5 tables, so the averages rest on few values; say so when showing the price menu.</div>' : ''}
+      <h3 style="margin-top:18px">Table results</h3>${Display.tables(c, s, a)}`;
+  },
+
+  /* Group discussion */
+  async labDiscussion(el, s, c){
+    const d = await loadLab(s.id), a = analyzeLab(c, s, d);
+    const views = [['reveal','The reveal'],['medians','Cost per challenge'],['dollars','How the dollars add up'],['evidence','The evidence']];
+    el.innerHTML = `<div class="grid g2"><div class="card"><h3>Show on the big screen</h3><p class="hint" style="margin-top:0">Open the big screen once; then switch displays there, or open one directly:</p>
+        <div class="row">${views.map(([k, l]) => `<a class="btn sm" target="_blank" href="${appUrl('board', s.join_code)}&view=${k}">${l} ↗</a>`).join('')}</div>
+        <p class="hint">Start with <b>the reveal</b>: press Next (or →) to stack the six costs into one household total, compare it with the room's own menu, then scale it to every household in the place.</p>
+        <h3 style="margin-top:16px">Questions to ask</h3><ul class="small"><li>Which result surprised you? Which confirmed what you already knew?</li><li>Why do you think the top challenge cost households the most?</li><li>Where did partners disagree most, and what explains the difference?</li><li>Which evidence was most convincing? What evidence do we wish we had?</li><li>Who in this community probably pays more than these numbers show, and who pays less?</li><li>If one of these six could be fixed in the next year, which would make the biggest difference to households here?</li></ul></div>
+      <div class="card"><h3>Takeaways</h3><p class="hint" style="margin-top:0">Three to five takeaways, in the room's own words.</p>
+        <ol id="tk">${a.takeaways.map(t => `<li>${esc(t.body)} <button class="btn ghost sm danger" data-del="${t.id}" aria-label="Remove">✕</button></li>`).join('')}</ol>
+        <div class="row"><input id="tkin" class="grow" placeholder="Add a takeaway"><button class="btn primary" id="tkadd">Add</button></div>
+        <h3 style="margin-top:16px">Notes from notetakers</h3>${a.notes.length ? `<ul class="small">${a.notes.map(n => `<li>${esc(n.body)} <span class="tiny muted">${esc(n.author || '')}</span></li>`).join('')}</ul>` : '<p class="small muted">None yet.</p>'}</div></div>
+      <div class="card" style="margin-top:16px"><h3>Household cost per challenge</h3>${Display.medians(c, s, a)}</div>
+      <div class="card" style="margin-top:16px"><h3>How the dollars add up</h3>${Display.dollars(c, s, a)}</div>
+      <div class="card" style="margin-top:16px"><h3>Table results</h3>${Display.tables(c, s, a)}</div>`;
+    $('#tkadd').onclick = async () => { const body = $('#tkin').value.trim(); if (!body) return; const { error } = await sb.from('cvl_notes').insert({ session_id: s.id, kind: 'takeaway', body, author: isTester(this.user) ? 'Data lead' : this.user.email }); if (error) return toast(errMsg(error), true); this.go('lab', s.id); };
+    $('#tkin').onkeydown = e => { if (e.key === 'Enter') $('#tkadd').click(); };
+    $$('[data-del]').forEach(b => b.onclick = async () => { await sb.from('cvl_notes').delete().eq('id', b.dataset.del); this.go('lab', s.id); });
+  },
+
+  /* Lab results summary */
+  async labResults(el, s, c){
+    const d = await loadLab(s.id), a = analyzeLab(c, s, d);
+    const tally = o => Object.entries(o).map(([k, n]) => `${esc(k)}: <b>${n}</b>`).join(' · ') || '—';
+    el.innerHTML = `<div class="row noprint" style="margin-bottom:12px"><span class="grow small muted">The short summary for the coalition and the deliberative assembly, produced within a week of the session.</span>
+        <button class="btn sm" id="csv1">Boards (CSV)</button><button class="btn sm" id="csv2">Evidence (CSV)</button><button class="btn sm" id="csv3">Prices (CSV)</button><button class="btn sm" id="pr">Print</button></div>
+      <div class="card report"><h2>Lab results summary</h2><p class="small muted">${esc(s.label)} · ${esc(c.name)}${c.place ? ' (' + esc(c.place) + ')' : ''} · ${esc(s.session_date)} · ${esc(issueOf(s).name)} · ${a.nPeople} participants at ${a.nTables} tables</p>
+        <h3>1. Household cost per challenge</h3><p class="hint">The average valuation (Task 3) in dollars, the range where most answers fell, and the number of “more than anything” and “can't say” answers.</p>
+        <div class="tablewrap"><table class="small"><thead><tr><th>Challenge</th><th class="num">Average</th><th class="num">Most answers between</th><th class="num">More than anything</th><th class="num">Can't say</th><th class="num">Tokens</th></tr></thead><tbody>
+        ${a.per.map(x => `<tr><td>${esc(x.code)} · ${esc(x.title)}</td><td class="num"><b>${x.med == null ? '—' : x.med === 13 ? 'More than anything' : fmt$(x.medValue)}</b></td><td class="num">${x.q1 == null ? '—' : `${x.q1 === 13 ? '13+' : fmt$(lineValue(s, c, x.q1))} – ${x.q3 === 13 ? 'more than anything' : fmt$(lineValue(s, c, x.q3))}`}</td><td class="num">${x.line13}</td><td class="num">${x.cant}</td><td class="num">${x.n + x.cant}</td></tr>`).join('')}</tbody></table></div>
+        ${Display.medians(c, s, a)}
+        <h4 style="margin:18px 0 6px">How the dollars add up</h4>${Display.dollars(c, s, a)}
+        ${+c.households && a.sum ? `<p class="small"><b>Scaled to the place (rough):</b> if every one of the ${(+c.households).toLocaleString('en-US')} households in ${esc(c.place || c.name)} carried a cost like this, distrust would cost ${bigMoney(a.sum * c.households)} a year. Treat this as an illustration, not an estimate: the six challenges may overlap, and the people in the room are not a sample of every household.</p>` : ''}
+        <h4 style="margin:18px 0 6px">Table results</h4>${Display.tables(c, s, a)}
+        <h3>2. The community price menu</h3><p class="hint">The average price for each item, with the spread across tables.</p>
+        <div class="tablewrap"><table class="small"><thead><tr><th>Line</th><th>Item</th><th class="num">Average</th><th class="num">Across tables</th><th class="num">Tables</th></tr></thead><tbody>
+        ${menuOf(s, c).map((m, i) => { const p = a.prices[m.item]; return `<tr><td class="muted">${i + 2}</td><td>${esc(m.label)}</td><td class="num"><b>${m.price != null ? fmt$(m.price) : '—'}</b></td><td class="num">${p && p.n ? `${fmt$(p.min)}–${fmt$(p.max)}` : '—'}</td><td class="num">${p ? p.n || 0 : 0}</td></tr>`; }).join('')}</tbody></table></div>
+        <h3>3. Evidence profile</h3><div class="tablewrap"><table class="small"><thead><tr><th>Challenge</th><th class="num">Lived</th><th class="num">Seen</th><th class="num">Data</th><th class="num">Typical stated cost</th></tr></thead><tbody>
+        ${a.per.map(x => `<tr><td>${esc(x.code)} · ${esc(x.title)}</td><td class="num">${x.kinds.lived}</td><td class="num">${x.kinds.seen}</td><td class="num">${x.kinds.data}</td><td class="num">${x.evMoney != null ? fmt$(x.evMoney) : '—'}${x.evHours != null ? ` · ${x.evHours} h` : ''}</td></tr>`).join('')}</tbody></table></div>
+        ${Display.evidence(a, false, 4)}
+        <h3>4. Discussion takeaways</h3>${a.takeaways.length ? `<ol>${a.takeaways.map(t => `<li>${esc(t.body)}</li>`).join('')}</ol>` : '<p class="small muted">Not recorded yet (Discussion tab).</p>'}
+        <h3>5. Who took part</h3><p class="small">Household size: ${tally(Object.fromEntries(Object.entries(a.profile.household).sort((x, y) => +x[0] - +y[0]).map(([k, n]) => [+k >= 8 ? '8 or more' : k, n])))}<br>Age: ${tally(a.profile.age)}<br>Years in the area: ${tally(a.profile.years)}</p><p class="hint">Recorded as counts per table, not linked to anyone's answers. Compare it with the zip codes' population before drawing conclusions.</p>
+        <h3>Limits to state with every result</h3><ul class="small"><li>Results describe this community, from one zip code or cluster, and not the wider region.</li><li>Values are residents' estimates, supported by evidence, not audited costs.</li><li>The six challenges may overlap, so their sum is an upper estimate of the household total.</li><li>With one session, treat the figures as provisional. A second Lab with a different group from the same area tests whether they hold.</li></ul>
+        <p class="tiny muted">How the averages are worked out: each average is the middle answer when all answers are put in order, so one unusually high or low answer doesn't pull it up or down. The same applies to the menu prices, which are rounded to easy numbers.</p>
+      </div>`;
+    $('#pr').onclick = () => print();
+    const tNo = Object.fromEntries(d.tables.map(t => [t.id, t.table_no]));
+    $('#csv1').onclick = () => { const rows = [['session','table','people','challenge','line','item','dollar_value','tokens']];
+      d.tables.forEach(t => a.ch.forEach(x => { const b = (t.board || {})[x.code] || {};
+        BOARD_KEYS.forEach(k => { if (+b[k]) rows.push([s.label, t.table_no, t.people || '', x.code, k === 'cant' ? "can't say" : k, k === 'cant' ? '' : lineLabel(s, c, +k), k === 'cant' || k === '13' ? '' : lineValue(s, c, +k) ?? '', +b[k]]); }); }));
+      downloadCSV(`${s.label}-boards.csv`, rows); };
+    $('#csv2').onclick = () => downloadCSV(`${s.label}-evidence.csv`, [['table','challenge','type','summary','cost_money','cost_hours','cost_other','ok_to_quote'], ...d.evidence.map(e => [tNo[e.table_id] ?? '', e.challenge, EVIDENCE_KINDS[e.kind], e.summary, e.cost_money, e.cost_hours, e.cost_other, e.quote_ok])]);
+    $('#csv3').onclick = () => downloadCSV(`${s.label}-prices.csv`, [['item', ...d.tables.map(t => 'table ' + t.table_no), 'mean', 'average_median', 'shared'], ...a.prices.map(p => [p.label, ...p.tables.map(t => t.v || ''), p.n ? Math.round(p.mean) : '', p.median ?? '', (menuOf(s, c).find(m => m.item === p.item) || {}).price ?? ''])]);
+  },
+
+  async viewSettings(v){
+    const { data } = await sb.from('cvl_facilitators').select('*').order('added_at');
+    v.innerHTML = this.intro('Settings', 'Staff who can sign in: the data lead and notetakers.') + `<div class="card" style="max-width:680px">
+      <table class="small"><tbody>${(data||[]).map(f => `<tr><td>${esc(f.email)}</td><td>${esc(f.name||'')}</td><td>${f.email.toLowerCase() === this.user.email.toLowerCase() ? '<span class="muted">you</span>' : `<button class="btn ghost sm danger" data-del="${esc(f.email)}">Remove</button>`}</td></tr>`).join('')}</tbody></table>
+      <div class="row" style="margin-top:12px"><input id="fe" placeholder="email" class="grow"><input id="fn" placeholder="name" class="grow"><button class="btn primary" id="fa">Add</button></div>
+      <p class="hint">New staff also need a sign-in account (Supabase → Authentication → Users). During testing, everyone uses the tester code.</p></div>`;
+    $('#fa').onclick = async () => { const email = $('#fe').value.trim().toLowerCase(); if (!email) return; const { error } = await sb.from('cvl_facilitators').insert({ email, name: $('#fn').value.trim() }); if (error) return toast(errMsg(error), true); this.go('settings'); };
+    $$('[data-del]').forEach(b => b.onclick = async () => { if (!confirmInline(b, 'Sure?')) return; await sb.from('cvl_facilitators').delete().eq('email', b.dataset.del); this.go('settings'); });
+  }
+};
+function csvCell(v){ v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }
+function downloadCSV(name, rows){ const blob = new Blob([rows.map(r => r.map(csvCell).join(',')).join('\n')], { type: 'text/csv' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name.replace(/[^\w.-]+/g,'_'); a.click(); }
+
+/* ============================================================
+   BIG SCREEN (projector; opened by the signed-in data lead)
+   ============================================================ */
+const Board = {
+  async start(session, code){
+    if (!(await checkFacilitator(session.user))) return;
+    this.code = cleanCode(code); this.view = params.get('view') || null;
+    this.rs = 0; await this.draw(); stopPoll(); pollTimer = setInterval(() => this.draw(true), 8000);
+    document.addEventListener('keydown', e => { if (this.view === 'reveal' && (e.key === 'ArrowRight' || e.key === ' ')) { e.preventDefault(); $('#rnext') && $('#rnext').click(); } });
+  },
+  async draw(poll=false){
+    if (poll && this.view === 'reveal') return;   // keep the reveal still while it is on screen
+    const { data: ss } = await sb.from('cvl_sessions').select('*').eq('join_code', this.code).limit(1);
+    const s = ss && ss[0]; if (!s) { app.innerHTML = `<div class="board"><h1>Lab not found</h1><p>Code ${esc(this.code)}</p></div>`; return; }
+    const { data: cs } = await sb.from('cvl_communities').select('*').eq('id', s.community_id).limit(1); const c = cs[0];
+    let d; try { d = await loadLab(s.id); } catch(e) { return; }
+    const a = analyzeLab(c, s, d);
+    const view = this.view || (Array.isArray(s.shared_menu) ? (a.per.some(x => x.n || x.cant) ? 'medians' : 'menu') : 'prices');
+    const views = [['prices','Table prices'],['menu','Shared menu'],['reveal','The reveal'],['medians','Cost per challenge'],['dollars','How the dollars add up'],['evidence','Evidence']];
+    const view0 = views.some(v => v[0] === view) ? view : 'medians';
+    const titles = { prices: 'What every table said', menu: 'The shared price menu', reveal: 'What distrust costs a household here', medians: 'Household cost per challenge', dollars: 'How the dollars add up', evidence: 'The evidence' };
+    const subs = { reveal: `Distrust of ${esc(issueOf(s).name.toLowerCase())}, in this room’s own prices.`, prices: 'Each table’s price, and the average we will all use.', menu: 'Please write these numbers on your menu. From now on, everyone uses the same prices.', medians: 'The average cost to a household in a year, from most to least costly.', dollars: 'For each challenge: where the middle answer sits on the menu, and what that line costs.', evidence: 'Evidence cards by type, with quotes read with the writers’ consent.' };
+    const body = { prices: () => Display.prices(c, s, a, true), menu: () => Array.isArray(s.shared_menu) ? Display.menu(c, s, true) : '<div class="bigwait"><h2>Not set yet</h2><p>The data lead will set the shared menu shortly.</p></div>',
+      reveal: () => this.revealHtml(c, s, a), medians: () => Display.medians(c, s, a, true), dollars: () => Display.dollars(c, s, a, true), evidence: () => Display.evidence(a, true, 2) }[view0]();
+    app.innerHTML = `<div class="board ${view0 === 'reveal' ? 'revealmode' : ''}"><div class="row" style="align-items:flex-start"><div class="grow"><a class="btn sm backbtn" href="${location.pathname}">‹ Back to the lab</a><br><span class="chip">${esc(c.name)} · ${esc(issueOf(s).name)}</span><h1 style="margin-top:8px">${titles[view0]}</h1><p style="color:#c9d0de;margin:0">${subs[view0]}</p></div>
+      <div class="row boardnav">${views.map(([k, l]) => `<button class="btn sm ${k === view0 ? 'amber' : ''}" data-v="${k}">${l}</button>`).join('')}</div></div><div class="boardbody">${body}</div></div>`;
+    $$('[data-v]').forEach(b => b.onclick = () => { this.view = b.dataset.v; this.rs = 0; this.draw(); });
+    if (view0 === 'reveal') this.revealWire(c, s, a);
+  },
+  revealHtml(c, s, a){
+    if (!a.per.some(x => x.n)) return '<div class="bigwait"><h2>Not yet</h2><p>The reveal appears once the tables’ boards are in.</p></div>';
+    const items = a.ranked.filter(x => x.med !== 13 && x.medValue > 0), hh = +c.households || 0;
+    const cmp = menuCompare(s, c, a.sum), steps = hh ? 3 : 2;
+    const cmpText = !cmp ? '' : cmp.kind === 'same' ? `That’s about the same as <b>${esc(cmp.label.toLowerCase())}</b>, at this room’s own price of ${fmt$(cmp.price)}.`
+      : cmp.kind === 'times' ? `That’s about <b>${cmp.times} times ${esc(cmp.label.toLowerCase())}</b>, at this room’s own price of ${fmt$(cmp.price)}.`
+      : cmp.kind === 'more' ? `That’s more than <b>${esc(cmp.label.toLowerCase())}</b>, at this room’s own price of ${fmt$(cmp.price)}.`
+      : `That’s less than <b>${esc(cmp.label.toLowerCase())}</b> (${fmt$(cmp.price)}).`;
+    return `<div class="reveal" data-steps="${steps}">
+      <p class="rbig" id="rtot">${this.rs >= 1 ? fmt$(a.sum) + (a.sumHas13 ? '+' : '') : '$ ?'}</p>
+      <p class="rk">per household, every year${this.rs >= 1 ? ` · about ${fmt$(Math.round(a.sum / 12 / 5) * 5)} a month` : ''}</p>
+      <div class="rstack" id="rstack">${items.map((x, i) => `<div class="rseg" data-w="${(100 * x.medValue / a.sum).toFixed(2)}" style="background:${REVEAL_COLORS[i]};${this.rs >= 1 ? `width:${(100 * x.medValue / a.sum).toFixed(2)}%` : ''}">${esc(x.code)}</div>`).join('')}</div>
+      <div class="rleg">${items.map((x, i) => `<span><i style="background:${REVEAL_COLORS[i]}"></i><b>${esc(x.code)}</b> ${esc(trunc(x.title, 34))} · ${fmt$(x.medValue)}</span>`).join('')}</div>
+      ${a.sumHas13 ? '<p class="rnote">Plus at least one challenge whose average is “more than anything on the menu”, which has no price.</p>' : ''}
+      ${cmpText ? `<div class="rbeat ${this.rs >= 2 ? 'on' : ''}" id="rb2"><p class="rcmp">${cmpText}</p></div>` : ''}
+      ${hh ? `<div class="rbeat ${this.rs >= 3 ? 'on' : ''}" id="rb3"><p class="rk">If every household in ${esc(c.place || c.name)} carries a cost like this</p>
+        <p class="rcomm" id="rcomm">${this.rs >= 3 ? bigMoney(a.sum * hh) : '$0'}</p><p class="rnote">a year, across ${hh.toLocaleString('en-US')} households. A rough figure, not a measurement: the six may overlap, and this room is not a survey of every household.</p></div>` : ''}
+      <div class="rctl"><button class="btn amber" id="rnext">${this.rs === 0 ? 'Reveal ›' : this.rs < steps ? 'Next ›' : 'Start over'}</button><span class="rnote" style="margin:0">Step ${this.rs} of ${steps} · the → key works too</span></div></div>`;
+  },
+  revealWire(c, s, a){
+    const btn = $('#rnext'); if (!btn) return;
+    const steps = +$('.reveal').dataset.steps, hh = +c.households || 0;
+    const count = (el, to, ms, f) => { const t0 = performance.now(); const tick = t => { const p = Math.min(1, (t - t0) / ms); el.textContent = f(to * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(tick); }; requestAnimationFrame(tick); };
+    btn.onclick = () => {
+      if (this.rs >= steps) { this.rs = 0; this.draw(); return; }
+      this.rs++;
+      if (this.rs === 1) {
+        const segs = $$('#rstack .rseg'); let acc = 0; const vals = a.ranked.filter(x => x.med !== 13 && x.medValue > 0).map(x => x.medValue);
+        segs.forEach((d, i) => setTimeout(() => { const from = acc; acc += vals[i]; d.style.width = d.dataset.w + '%'; count($('#rtot'), 1, 600, p => fmt$(from + (acc - from) * p) ); }, i * 700));
+        setTimeout(() => { $('#rtot').textContent = fmt$(a.sum) + (a.sumHas13 ? '+' : ''); $('.reveal .rk').textContent = `per household, every year · about ${fmt$(Math.round(a.sum / 12 / 5) * 5)} a month`; }, segs.length * 700 + 400);
+      }
+      if (this.rs === 2) $('#rb2') && $('#rb2').classList.add('on');
+      if (this.rs === 3 && hh) { $('#rb3').classList.add('on'); count($('#rcomm'), a.sum * hh, 1800, bigMoney); }
+      btn.textContent = this.rs < steps ? 'Next ›' : 'Start over';
+      $('.rctl .rnote').textContent = `Step ${this.rs} of ${steps} · the → key works too`;
+    };
+  }
+};
+
+/* ============================================================
+   NOTETAKER VIEW (phone or tablet; one notetaker per table)
+   ============================================================ */
+const Notetaker = {
+  s: null, c: null, d: null, tid: null, tab: 'prices', ch: '1',
+  async start(session, code){
+    this.user = session.user;
+    if (!isNoteUser(this.user) && !(await checkFacilitator(this.user))) return;
+    this.code = cleanCode(code);
+    const { data: ss } = await sb.from('cvl_sessions').select('*').eq('join_code', this.code).limit(1);
+    this.s = ss && ss[0];
+    if (!this.s) { app.innerHTML = `<div class="phone"><div class="card"><h2>Lab not found</h2><p>Check the code: ${esc(this.code)}</p><button class="btn" id="so">Sign out</button></div></div>`; $('#so').onclick = signOut; return; }
+    const { data: cs } = await sb.from('cvl_communities').select('*').eq('id', this.s.community_id).limit(1); this.c = cs[0];
+    const last = store.get('cvl_note4_' + this.code) || {};
+    this.tid = last.tid || null; this.tab = last.tab || 'prices'; if (!['prices','who','board','evidence'].includes(this.tab)) this.tab = 'board';
+    await this.reload(); this.render();
+    stopPoll(); pollTimer = setInterval(async () => { const { data } = await sb.from('cvl_sessions').select('shared_menu,stage,problems').eq('id', this.s.id).limit(1);
+      if (data && data[0] && JSON.stringify(data[0].shared_menu) !== JSON.stringify(this.s.shared_menu)) { Object.assign(this.s, data[0]); if (!document.activeElement || document.activeElement === document.body) this.render(); } }, 10000);
+  },
+  async reload(){ this.d = await loadLab(this.s.id); },
+  remember(){ store.set('cvl_note4_' + this.code, { tid: this.tid, tab: this.tab }); },
+  table(){ return this.d.tables.find(t => t.id === this.tid); },
+  closed(){ return this.s.stage === 'closed'; },
+  shell(inner){
+    app.innerHTML = `<div class="phone wide"><div class="hdr"><div class="brand grow">Notetaker</div><span class="chip amber">${esc(this.s.join_code)}</span><button class="btn ghost sm" id="so">Sign out</button></div>
+      <p class="tiny muted" style="margin:-8px 0 12px">${esc(this.s.label)} · ${esc(this.c.name)}${this.closed() ? ' · <b>closed (read-only)</b>' : ''}</p>${inner}</div>`;
+    $('#so').onclick = signOut; window.scrollTo(0, 0);
+  },
+  render(){ return this.tid && this.table() ? this.renderTable() : this.renderHome(); },
+
+  renderHome(){
+    const ch = challengesOf(this.s);
+    this.shell(`<div class="card"><h2>Pick your table</h2><p class="small" style="margin-top:0">One notetaker per table. Tap your table to record its prices, who's here, the tokens on its board and its evidence cards.</p>
+      <div class="parts">${this.d.tables.map(t => { const pr = (t.prices || []).filter(v => +v > 0).length, done = ch.filter(x => boardCount(t, x.code) > 0).length, ev = this.d.evidence.filter(e => e.table_id === t.id).length;
+        return `<button class="part ${done === ch.length ? 'done' : ''}" data-t="${t.id}"><span class="grow"><b>Table ${esc(t.table_no)}</b><span class="small">Prices ${pr}/${this.c.ladder.length} · board ${done}/${ch.length} · ${ev} evidence</span></span><span class="st">›</span></button>`; }).join('') || '<p class="muted small">No tables yet.</p>'}</div>
+      ${this.closed() ? '' : `<div class="row" style="margin-top:10px"><input id="nt" placeholder="Table number" inputmode="numeric" style="width:140px"><button class="btn" id="addt">+ Add table</button></div>`}</div>
+      <div class="card" style="margin-top:14px"><h3>Discussion notes</h3><p class="hint" style="margin-top:0">Capture key points during the group discussion.</p>
+        <textarea id="note" placeholder="A key point someone made"></textarea><button class="btn" id="addn" style="margin-top:8px">Save note</button></div>`);
+    $$('[data-t]').forEach(b => b.onclick = () => { this.tid = b.dataset.t; this.remember(); this.renderTable(); });
+    $('#addt') && ($('#addt').onclick = async () => { const n = $('#nt').value.trim(); if (!n) return;
+      if (this.d.tables.some(t => String(t.table_no) === n)) return toast('That table is already here', true);
+      const { data, error } = await sb.from('cvl_tables').insert({ session_id: this.s.id, table_no: n }).select().single(); if (error) return toast(errMsg(error), true);
+      await this.reload(); this.tid = data.id; this.tab = 'prices'; this.remember(); this.renderTable(); });
+    $('#addn').onclick = async () => { const body = $('#note').value.trim(); if (!body) return;
+      const { error } = await sb.from('cvl_notes').insert({ session_id: this.s.id, kind: 'note', body, author: isTester(this.user) ? 'Notetaker' : this.user.email }); if (error) return toast(errMsg(error), true);
+      $('#note').value = ''; toast('Note saved'); };
+  },
+
+  renderTable(){
+    const t = this.table(), tabs = [['prices','Prices'],['who','Who\'s here'],['board','Board'],['evidence','Evidence']];
+    this.shell(`<button class="btn ghost sm homebtn" id="home">‹ All tables</button>
+      <div class="row" style="margin-bottom:8px"><h2 class="grow" style="margin:0">Table ${esc(t.table_no)}</h2></div>
+      <div class="subtabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${k === this.tab ? 'on' : ''}">${l}</button>`).join('')}</div><div id="tb"></div>`);
+    $('#home').onclick = () => { this.tid = null; this.remember(); this.renderHome(); };
+    $$('[data-tab]').forEach(b => b.onclick = () => { this.tab = b.dataset.tab; this.remember(); this.renderTable(); });
+    ({ prices: () => this.tabPrices(t), who: () => this.tabWho(t), board: () => this.tabBoard(t), evidence: () => this.tabEvidence(t) })[this.tab]();
+  },
+
+  /* Part 1: the table's 12 prices (lines 2–12; line 1 is fixed at $0 and line 13 has no price) */
+  tabPrices(t){
+    const pr = [...(t.prices || [])]; while (pr.length < this.c.ladder.length) pr.push(0);
+    const adopted = Array.isArray(this.s.shared_menu);
+    $('#tb').innerHTML = `<div class="card"><p class="small" style="margin-top:0">“What does this typically cost a household like ours in this area?” Enter the figure the table agrees on.</p>
+      ${this.c.ladder.map((x, i) => i).reverse().map(i => `<div class="pricerow"><label for="p${i}"><span><span class="lineno">${i + 2}</span> <b>${esc(this.c.ladder[i].label)}</b></span><span class="pricenote" id="r${i}"></span></label><div class="dollar"><span>$</span><input id="p${i}" data-i="${i}" type="number" min="0" inputmode="numeric" value="${+pr[i] || ''}" ${this.closed() ? 'disabled' : ''}></div></div>`).join('')}
+      <p class="small muted" id="pst" style="margin-bottom:0"></p></div>
+      ${adopted ? `<div class="card" style="margin-top:14px"><h3>Shared menu</h3>${Display.menu(this.c, this.s)}</div>` : ''}`;
+    $$('[data-i]').forEach(inp => inp.onchange = async () => {
+      const i = +inp.dataset.i; pr[i] = Math.max(0, Math.round(+inp.value || 0));
+      const chk = j => { const el = $('#r' + j); if (!el) return; const v = +pr[j], lo = +pr[j-1] || 0, hi = +pr[j+1] || 0, L = this.c.ladder;
+        el.textContent = !v ? '' : hi && v > hi ? `Check: more than line ${j + 3} (${fmt$(hi)})` : lo && v < lo ? `Check: less than line ${j + 1} (${fmt$(lo)})` : ''; };
+      [i - 1, i, i + 1].forEach(j => { if (j >= 0 && j < pr.length) chk(j); });
+      const { error } = await sb.from('cvl_tables').update({ prices: pr.map(v => +v || 0) }).eq('id', t.id);
+      if (error) return toast(errMsg(error), true);
+      t.prices = pr.map(v => +v || 0); $('#pst').textContent = `Saved ✓ · ${t.prices.filter(v => v > 0).length} of ${this.c.ladder.length} entered`;
+    });
+  },
+
+  /* Who's at this table: the check-in profile as counts for the table, never linked to a token */
+  tabWho(t){
+    const prof = JSON.parse(JSON.stringify(t.profile || {}));
+    const groups = [['household', 'Household size', ['1','2','3','4','5','6','7','8'], k => k === '8' ? '8 or more' : k],
+                    ['age', 'Age', AGE_BANDS, k => k], ['years', 'Years in the area', YEARS, k => k]];
+    let people = +t.people || 0;
+    const sum = g => Object.values(prof[g] || {}).reduce((a, n) => a + (+n || 0), 0);
+    const draw = () => {
+      $('#tb').innerHTML = `<div class="card"><div class="steprow ${people ? 'has' : ''}"><span class="lbl"><b>People at this table</b><span class="tiny muted">no more than 6</span></span>
+          <span class="stepper"><button data-pp="-1" ${people && !this.closed() ? '' : 'disabled'} aria-label="One fewer person">−</button><output>${people}</output><button data-pp="1" ${people < 6 && !this.closed() ? '' : 'disabled'} aria-label="One more person">+</button></span></div>
+        <p class="small">A short anonymous profile of the people at this table, from check-in. It's kept as counts for the table only, never linked to anyone's answers.</p>
+        ${groups.map(([g, label, keys, show]) => `<h3 style="margin:16px 0 6px">${label} <span class="small ${people && sum(g) !== people ? 'warntxt' : 'muted'}">${sum(g)}${people ? ' of ' + people : ''}</span></h3>
+          <div class="steplist">${keys.map(k => { const n = +((prof[g] || {})[k]) || 0; return `<div class="steprow ${n ? 'has' : ''}"><span class="lbl"><b>${esc(show(k))}</b></span>
+            <span class="stepper"><button data-g="${g}" data-k="${esc(k)}" data-d="-1" ${n && !this.closed() ? '' : 'disabled'} aria-label="One fewer">−</button><output>${n}</output><button data-g="${g}" data-k="${esc(k)}" data-d="1" ${this.closed() ? 'disabled' : ''} aria-label="One more">+</button></span></div>`; }).join('')}</div>`).join('')}
+        <p class="small muted" id="wst" style="margin-bottom:0"></p></div>`;
+      $$('[data-pp]').forEach(b => b.onclick = async () => {
+        people = Math.max(0, Math.min(6, people + +b.dataset.pp)); const sy = window.scrollY; draw(); window.scrollTo(0, sy);
+        const { error } = await sb.from('cvl_tables').update({ people }).eq('id', t.id);
+        if (error) return toast(errMsg(error), true); t.people = people; $('#wst').textContent = 'Saved ✓';
+      });
+      $$('[data-g]').forEach(b => b.onclick = async () => {
+        const g = b.dataset.g, k = b.dataset.k; prof[g] = prof[g] || {}; prof[g][k] = Math.max(0, (+prof[g][k] || 0) + +b.dataset.d); if (!prof[g][k]) delete prof[g][k];
+        const sy = window.scrollY; draw(); window.scrollTo(0, sy);
+        const { error } = await sb.from('cvl_tables').update({ profile: prof }).eq('id', t.id);
+        if (error) return toast(errMsg(error), true); t.profile = JSON.parse(JSON.stringify(prof)); $('#wst').textContent = 'Saved ✓';
+      });
+    };
+    draw();
+  },
+
+  /* Task 3: count the tokens on each line of the table's board, one challenge at a time */
+  tabBoard(t){
+    const ch = challengesOf(this.s); if (!ch.some(x => x.code === this.ch)) this.ch = ch[0].code;
+    const board = JSON.parse(JSON.stringify(t.board || {})), x = ch.find(y => y.code === this.ch);
+    const draw = () => {
+      const b = board[x.code] || {}, n = BOARD_KEYS.reduce((k, key) => k + (+b[key] || 0), 0), people = +t.people || 0;
+      $('#tb').innerHTML = `<div class="card"><p class="small" style="margin-top:0">When the table has placed its cards, count the tokens on each line of the board for each challenge. Then photograph the board as a backup.</p>
+        ${people ? '' : `<div class="steprow" style="margin-bottom:12px;border-color:var(--amber)"><span class="lbl"><b>People at this table</b><span class="tiny muted">set this first, so the count can be checked</span></span>
+          <button class="btn sm" id="setpp">Set it ›</button></div>`}
+        <div class="chpick">${ch.map(y => { const k = boardCount({ board }, y.code); return `<button class="${y.code === x.code ? 'on' : ''} ${k ? 'has' : ''}" data-ch="${esc(y.code)}">${esc(y.code)}${k ? ' ✓' : ''}</button>`; }).join('')}</div>
+        <h3 style="margin:12px 0 2px">${esc(x.code)} · ${esc(x.title)}</h3>
+        <p class="small ${people && n && n !== people ? 'warntxt' : 'muted'}" style="margin:0 0 8px">${n} token${n === 1 ? '' : 's'} counted${people ? ` · ${people} people at this table` : ''}${people && n && n !== people ? ' · check the count' : ''}</p>
+        <div class="steplist">${BOARD_KEYS.map(k => { const v = +b[k] || 0, l = +k;
+          return `<div class="steprow ${v ? 'has' : ''}"><span class="lbl">${k === 'cant' ? '<b><i>Can’t say</i></b><span class="tiny muted">card left off the board</span>' : `<b><span class="lineno">${l}</span> ${esc(trunc(lineLabel(this.s, this.c, l), 30))}</b><span class="tiny muted">${linePrice(this.s, this.c, l)}</span>`}</span>
+            <span class="stepper"><button data-k="${k}" data-d="-1" ${v && !this.closed() ? '' : 'disabled'} aria-label="One fewer token">−</button><output>${v}</output><button data-k="${k}" data-d="1" ${this.closed() ? 'disabled' : ''} aria-label="One more token">+</button></span></div>`; }).join('')}</div>
+        <p class="small muted" id="bst" style="margin:10px 0 0"></p>
+        <div class="countbar ${people && n && n !== people ? 'warn' : ''}"><span>Challenge ${esc(x.code)}: ${n}${people ? ' of ' + people : ''} token${(people || n) === 1 ? '' : 's'}${people && n && n !== people ? ' · check' : people && n === people ? ' ✓' : ''}</span>${ch.findIndex(y => y.code === x.code) < ch.length - 1 ? '<button class="btn amber sm" id="nextch">Next ›</button>' : ''}</div></div>`;
+      $$('[data-ch]').forEach(btn => btn.onclick = () => { this.ch = btn.dataset.ch; this.tabBoard(t); });
+      $('#setpp') && ($('#setpp').onclick = () => { this.tab = 'who'; this.remember(); this.renderTable(); });
+      $('#nextch') && ($('#nextch').onclick = () => { this.ch = ch[ch.findIndex(y => y.code === x.code) + 1].code; this.tabBoard(t); window.scrollTo(0, 0); });
+      $$('#tb [data-k]').forEach(btn => btn.onclick = async () => {
+        const k = btn.dataset.k, cur = board[x.code] = board[x.code] || {}; cur[k] = Math.max(0, (+cur[k] || 0) + +btn.dataset.d); if (!cur[k]) delete cur[k];
+        const sy = window.scrollY; draw(); window.scrollTo(0, sy);
+        const { error } = await sb.from('cvl_tables').update({ board }).eq('id', t.id);
+        if (error) return toast(errMsg(error), true); t.board = JSON.parse(JSON.stringify(board)); $('#bst').textContent = 'Saved ✓' + (k === '13' && +btn.dataset.d > 0 ? ' · line 13 has no price; it is reported separately' : '');
+      });
+    };
+    draw();
+  },
+
+  /* Task 4 evidence cards, for the table and a challenge */
+  tabEvidence(t){
+    const ch = challengesOf(this.s), ev = this.d.evidence.filter(e => e.table_id === t.id);
+    $('#tb').innerHTML = `<div class="card">${this.closed() ? '' : `<h3>Add an evidence card</h3>
+      <label>For challenge</label><div class="chpick" id="ecp">${ch.map(x => `<button class="${x.code === this.ch ? 'on' : ''}" data-ec="${esc(x.code)}" aria-label="Challenge ${esc(x.code)}: ${esc(x.title)}">${esc(x.code)}</button>`).join('')}</div>
+      <p class="small" id="ect" style="margin:6px 0 0">${esc((ch.find(x => x.code === this.ch) || ch[0]).title)}</p><input type="hidden" id="ec" value="${esc((ch.find(x => x.code === this.ch) || ch[0]).code)}">
+      <label>Type of evidence</label><div class="seg stack" id="ek">${Object.entries(EVIDENCE_KINDS).map(([k, l], i) => `<button data-k="${k}" class="${i === 0 ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <label for="es">What happened</label><textarea id="es" placeholder="Two or three lines"></textarea>
+      <div class="row"><div class="grow"><label>Money ($)</label><input id="em" type="number" min="0" inputmode="decimal"></div><div class="grow"><label>Time (hours)</label><input id="eh" type="number" min="0" inputmode="decimal"></div></div>
+      <label for="eo">Other cost</label><input id="eo" placeholder="optional">
+      <label class="chk big"><input type="checkbox" id="eq"> <span>The writer agreed this can be read aloud (anonymously) in the discussion</span></label>
+      <button class="btn primary big" id="eadd">Save evidence card</button>`}</div>
+      <div class="card" style="margin-top:14px"><h3>This table's evidence (${ev.length})</h3>
+        ${ev.map(e => `<div class="evrow"><div class="row"><b class="grow">Challenge ${esc(e.challenge)}</b><span class="chip">${esc(EVIDENCE_KINDS[e.kind])}</span></div>
+          <p class="small" style="margin:4px 0">${esc(e.summary || '')}</p><p class="tiny muted" style="margin:0">${[e.cost_money != null ? fmt$(e.cost_money) : '', e.cost_hours != null ? e.cost_hours + ' hours' : '', e.cost_other || ''].filter(Boolean).join(' · ') || 'no cost stated'}${e.quote_ok ? ' · OK to quote' : ''}</p>
+          ${this.closed() ? '' : `<button class="btn ghost sm danger" data-del="${e.id}">Remove</button>`}</div>`).join('') || '<p class="muted small">None yet.</p>'}</div>`;
+    let kind = 'lived';
+    $$('[data-ec]').forEach(b => b.onclick = () => { $('#ec').value = b.dataset.ec; $('#ect').textContent = (ch.find(x => x.code === b.dataset.ec) || {}).title || ''; $$('[data-ec]').forEach(x => x.classList.toggle('on', x === b)); });
+    $$('#ek button').forEach(b => b.onclick = () => { kind = b.dataset.k; $$('#ek button').forEach(x => x.classList.toggle('on', x === b)); });
+    $('#eadd') && ($('#eadd').onclick = async () => {
+      const row = { session_id: this.s.id, table_id: t.id, challenge: $('#ec').value, kind, summary: $('#es').value.trim() || null,
+        cost_money: $('#em').value === '' ? null : +$('#em').value, cost_hours: $('#eh').value === '' ? null : +$('#eh').value, cost_other: $('#eo').value.trim() || null, quote_ok: $('#eq').checked };
+      if (!row.summary && row.cost_money == null && row.cost_hours == null) return toast('Add what happened or a cost', true);
+      const { error } = await sb.from('cvl_evidence').insert(row); if (error) return toast(errMsg(error), true);
+      this.ch = row.challenge; await this.reload(); toast('Evidence card saved'); this.tabEvidence(this.table());
+    });
+    $$('[data-del]').forEach(b => b.onclick = async () => { if (!confirmInline(b, 'Tap again to remove')) return; await sb.from('cvl_evidence').delete().eq('id', b.dataset.del); await this.reload(); this.tabEvidence(this.table()); });
+  }
+};
+
+boot();
+
+</script>
+</body>
+</html>
